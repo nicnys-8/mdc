@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,14 +23,18 @@ type Node struct {
 	linkChannel      chan *Link
 	seqNumbers       map[NodeId]int // contains the higest sequence number received from a node
 	seqNumberCounter int
+	localAddr        string
+	localPort        string
 }
 
-func NewNode(port string, nodeAddress string) (*Node, chan int) {
+func NewNode(localAddr string, localPort string, nodeAddress string) (*Node, chan int) {
 	node := new(Node)
 
+	node.localAddr = localAddr
+	node.localPort = localPort
 	node.links = make(map[NodeId]*Link)
 	node.seqNumbers = make(map[NodeId]int)
-	node.seqNumberCounter = 0
+	node.seqNumberCounter = 0 // this one is shared my multiple go routines and may need to be protected
 
 	//fmt.Printf("\n\bXXXX node.seqNumberCounter=%d\n\n", node.seqNumberCounter)
 
@@ -40,7 +45,7 @@ func NewNode(port string, nodeAddress string) (*Node, chan int) {
 
 	node.id = NodeId(u.String())
 
-	fmt.Println("NewNode: my node id is " + node.Id())
+	fmt.Println("Node: my node id is " + node.Id())
 
 	done := make(chan int)
 	node.msgChannel = make(chan Msg)
@@ -48,17 +53,20 @@ func NewNode(port string, nodeAddress string) (*Node, chan int) {
 
 	// start websocket server
 	node.wsServer = NewWsServer(node)
-	go node.wsServer.start(port)
+	go node.wsServer.start(localPort)
 
 	// join another node
 	if nodeAddress != "" {
-		fmt.Println("NewNode: joining node at " + nodeAddress)
+		fmt.Println("Node: joining node at " + nodeAddress)
 		go node.Join(nodeAddress)
 	}
 
 	go func() {
 		for {
 			select {
+			case <-time.After(time.Second):
+				fmt.Println("Node: sending announce message")
+				node.Announce()
 			case msg := <-node.msgChannel:
 				// check if this is a new message, or if we have already got it before
 				seqNumberForNode, found := node.seqNumbers[node.id]
@@ -76,26 +84,26 @@ func NewNode(port string, nodeAddress string) (*Node, chan int) {
 					// this a new message
 					node.seqNumbers[node.id] = seqNumberForNode + 1 // increase the counter
 
-					if msg.Dst == node.id {
+					if msg.Dst == node.id || msg.Dst == Broadcast {
 						// yes, we finnaly got a message
-						fmt.Println("NewNode: got a new message: " + msg.Payload)
+						fmt.Println("Node: got a new message: " + msg.Payload)
 					} else {
 						// forward this message
-						fmt.Println("NewNode: forward message: " + msg.Payload)
+						fmt.Println("Node: forward message: " + msg.Payload)
 						node.Forward(msg)
 					}
 
 				} else {
 					// we already go this message, just drop it
-					fmt.Printf("NewNode: dropping message")
+					fmt.Println("Node: dropping message " + msg.Payload)
 				}
 
 			case link := <-node.linkChannel:
 				if link.state == Dead {
 					delete(node.links, link.remoteNodeId)
-					fmt.Println("NewNode: removing link: <" + link.remoteNodeId + ">\n")
+					fmt.Println("Node: removing link: <" + link.remoteNodeId + ">\n")
 				} else {
-					fmt.Println("NewNode: got a new link: <" + link.remoteNodeId + ">\n")
+					fmt.Println("Node: got a new link: <" + link.remoteNodeId + ">\n")
 					node.links[link.remoteNodeId] = link
 				}
 			}
@@ -103,7 +111,6 @@ func NewNode(port string, nodeAddress string) (*Node, chan int) {
 	}()
 
 	return node, done
-
 }
 
 func (node *Node) Id() NodeId {
@@ -126,6 +133,22 @@ func (node *Node) SendStrToNode(str string, dst NodeId) {
 	node.seqNumberCounter++
 
 	// send the message on all our links
+	for _, link := range node.links {
+		//fmt.Printf("\nsending msg msg.SeqNr=<%d>\n", msg.SeqNr)
+		link.send(msg)
+	}
+}
+
+func (node *Node) Announce() {
+	msg := new(Msg)
+	msg.Type = Discovery
+	msg.Payload = node.localAddr + ":" + node.localPort
+	msg.Src = node.id
+	msg.Dst = Broadcast
+	msg.SeqNr = node.seqNumberCounter
+
+	node.seqNumberCounter++
+
 	for _, link := range node.links {
 		//fmt.Printf("\nsending msg msg.SeqNr=<%d>\n", msg.SeqNr)
 		link.send(msg)
@@ -157,14 +180,23 @@ func (node *Node) Test() {
 	}()
 }
 
-var nodeAddressFlag = flag.String("join", "", "ip address and port to a node to join, e.g. --join localhost:3121")
-var nodePortFlag = flag.String("port", "12345", "port to bind this node to, e.g --port 12345")
+var joinFlag = flag.String("join", "", "ip address and port to a node to join, e.g. --join localhost:2222")
+var localFlag = flag.String("local", "", "ip address and port where this node should bound, e.g. --local localhost:1111")
 var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http test server at port 8080 for debuging")
 
 func main() {
 	flag.Parse()
 
-	node, done := NewNode(*nodePortFlag, *nodeAddressFlag)
+	temp := strings.Split(*localFlag, ":")
+	localAddr := temp[0]
+	localPort := temp[1]
+	//localPortStr = strings.Trim(localPortStr, " ")
+	//localPort, _ := strconv.Atoi(localPortStr)
+
+	//fmt.Println("localAddr=" + localAddr)
+	//fmt.Printf("localPort=%d\n", localPort)
+
+	node, done := NewNode(localAddr, localPort, *joinFlag)
 	node.Test()
 
 	if *testHttpServerFlag {
