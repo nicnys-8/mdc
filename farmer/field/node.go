@@ -21,7 +21,6 @@ type Node struct {
 	links            map[NodeId]*Link
 	msgChannel       chan Msg
 	linkChannel      chan *Link
-	seqNumbers       map[NodeId]int // contains the higest sequence number received from a node
 	seqNumberCounter int
 	localAddr        string
 	localPort        string
@@ -33,10 +32,6 @@ func NewNode(localAddr string, localPort string, nodeAddress string) (*Node, cha
 	node.localAddr = localAddr
 	node.localPort = localPort
 	node.links = make(map[NodeId]*Link)
-	node.seqNumbers = make(map[NodeId]int)
-	node.seqNumberCounter = 0 // this one is shared my multiple go routines and may need to be protected
-
-	//fmt.Printf("\n\bXXXX node.seqNumberCounter=%d\n\n", node.seqNumberCounter)
 
 	u, err := uuid.NewV4()
 	if err != nil {
@@ -65,45 +60,34 @@ func NewNode(localAddr string, localPort string, nodeAddress string) (*Node, cha
 		for {
 			select {
 			case <-time.After(time.Second):
-				fmt.Println("Node: sending announce message")
 				node.Announce()
 			case msg := <-node.msgChannel:
-				// check if this is a new message, or if we have already got it before
-				seqNumberForNode, found := node.seqNumbers[node.id]
-				seqNr := msg.SeqNr
+				fmt.Println("Node: got a message id=<" + msg.Id + ">")
 
-				//fmt.Printf("\n\bGOT A MSG seqNumberForNode=%d\n\n", seqNumberForNode)
-				//fmt.Printf("\n\bGOT A MSG seqNumberForMsg=%d\n\n", seqNr)
+				if msg.Dst == node.id && msg.Type == Data {
+					fmt.Println("Node: RECEIVING a DATA message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
+				} else if msg.Dst == Broadcast && msg.Type == Discovery {
+					fmt.Println("Node: RECEIVING a DISCOVERY message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
 
-				if !found {
-					seqNumberForNode = seqNr - 1 // this is a msg from a new node, assume we got the previous msg
-					fmt.Printf("node <"+string(node.id)+">  not found setting seq nr to %d\n", msg.SeqNr-1)
-				}
+					// TODO, learn path to other nodes
+					//nodeId := msg.Src
+					//nodeAddress = msg.Payload
 
-				if seqNr == seqNumberForNode+1 {
-					// this a new message
-					node.seqNumbers[node.id] = seqNumberForNode + 1 // increase the counter
+					fmt.Println("Node: FORWARDING message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
 
-					if msg.Dst == node.id || msg.Dst == Broadcast {
-						// yes, we finnaly got a message
-						fmt.Println("Node: got a new message: " + msg.Payload)
-					} else {
-						// forward this message
-						fmt.Println("Node: forward message: " + msg.Payload)
-						node.Forward(msg)
-					}
-
+					node.Forward(msg)
 				} else {
-					// we already go this message, just drop it
-					fmt.Println("Node: dropping message " + msg.Payload)
+					fmt.Println("Node: FORWARDING message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
+					node.Forward(msg)
 				}
 
+				fmt.Println("")
 			case link := <-node.linkChannel:
 				if link.state == Dead {
 					delete(node.links, link.remoteNodeId)
-					fmt.Println("Node: removing link: <" + link.remoteNodeId + ">\n")
+					fmt.Println("Node: REMOVING link: <" + link.remoteNodeId + ">\n")
 				} else {
-					fmt.Println("Node: got a new link: <" + link.remoteNodeId + ">\n")
+					fmt.Println("Node: ADDING link: <" + link.remoteNodeId + ">\n")
 					node.links[link.remoteNodeId] = link
 				}
 			}
@@ -128,13 +112,12 @@ func (node *Node) SendStrToNode(str string, dst NodeId) {
 	msg.Payload = str
 	msg.Src = node.id
 	msg.Dst = dst
-	msg.SeqNr = node.seqNumberCounter
+	msg.Id = MsgId(string(node.id) + "-" + strconv.Itoa(node.seqNumberCounter))
 
 	node.seqNumberCounter++
 
 	// send the message on all our links
 	for _, link := range node.links {
-		//fmt.Printf("\nsending msg msg.SeqNr=<%d>\n", msg.SeqNr)
 		link.send(msg)
 	}
 }
@@ -145,12 +128,11 @@ func (node *Node) Announce() {
 	msg.Payload = node.localAddr + ":" + node.localPort
 	msg.Src = node.id
 	msg.Dst = Broadcast
-	msg.SeqNr = node.seqNumberCounter
+	msg.Id = MsgId(string(node.id) + "-" + strconv.Itoa(node.seqNumberCounter))
 
 	node.seqNumberCounter++
 
 	for _, link := range node.links {
-		//fmt.Printf("\nsending msg msg.SeqNr=<%d>\n", msg.SeqNr)
 		link.send(msg)
 	}
 }
@@ -158,8 +140,10 @@ func (node *Node) Announce() {
 func (node *Node) Forward(msg Msg) {
 	// send the message on all our links
 	for _, link := range node.links {
-		//fmt.Printf("\nsending msg msg.SeqNr=<%d>\n", msg.SeqNr)
-		link.send(&msg)
+		if msg.LastHop != link.remoteNodeId { // do not forward messages to a link where it came from
+			msg.LastHop = node.id
+			link.send(&msg)
+		}
 	}
 }
 
@@ -169,8 +153,7 @@ func (node *Node) Test() {
 	go func() {
 		counter := 0
 		for {
-			msgStr := "hejsan " + strconv.Itoa(counter) + " from " + string(node.Id())
-			fmt.Printf("Sending MSG <" + msgStr + ">\n")
+			msgStr := "hi"
 			time.Sleep(2 * time.Second)
 			for remoteNodeId, _ := range node.links {
 				node.SendStrToNode(msgStr, remoteNodeId)
@@ -187,14 +170,10 @@ var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http tes
 func main() {
 	flag.Parse()
 
+	// TODO: check that the localFlag format is correct, it should be host:port
 	temp := strings.Split(*localFlag, ":")
 	localAddr := temp[0]
 	localPort := temp[1]
-	//localPortStr = strings.Trim(localPortStr, " ")
-	//localPort, _ := strconv.Atoi(localPortStr)
-
-	//fmt.Println("localAddr=" + localAddr)
-	//fmt.Printf("localPort=%d\n", localPort)
 
 	node, done := NewNode(localAddr, localPort, *joinFlag)
 	node.Test()

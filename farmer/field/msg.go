@@ -7,10 +7,14 @@ const (
 	Bye
 )
 
+type MsgId string
+
 type Msg struct {
-	Type    int
-	Payload string
-	SeqNr   int
-	Src     NodeId
-	Dst     NodeId
+	Type        int
+	Payload     string
+	Id          MsgId
+	Src         NodeId
+	Dst         NodeId
+	RouteRecord map[NodeId]NodeId
+	LastHop     NodeId
 }

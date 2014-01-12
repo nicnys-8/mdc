@@ -35,6 +35,11 @@ func (wsClient *WsClient) connect(nodeAddress string) {
 
 	for {
 		msg := wsClient.receive()
+
+		if msg == nil {
+			// TODO: remove the link
+			return
+		}
 		wsClient.node.msgChannel <- *msg
 	}
 }
@@ -43,9 +48,8 @@ func (wsClient *WsClient) send(msg *Msg) {
 	enc := json.NewEncoder(wsClient.ws)
 	err := enc.Encode(msg)
 	if err != nil {
-		log.Fatal("encode error:", err)
+		fmt.Println("WSClient: failed to send message")
 	}
-	//fmt.Printf("WSClient.send: sending: " + msg.Payload + "\n")
 }
 
 func (wsClient *WsClient) handshake() *Link {
@@ -57,19 +61,21 @@ func (wsClient *WsClient) handshake() *Link {
 	remoteNodeId := NodeId(reply.Payload)
 	link := NewLink(wsClient.node, wsClient.ws, remoteNodeId)
 
-	fmt.Printf("WsClient.handshake: node " + string(wsClient.node.id) + " is now connected to node " + string(remoteNodeId) + "\n")
+	//fmt.Printf("WsClient.handshake: node " + string(wsClient.node.id) + " is now connected to node " + string(remoteNodeId) + "\n")
 
 	return link
 }
 
-func (wsClient *WsClient) receive() *Msg {
+func (wsClient *WsClient) receive() *Msg { // TODO: return error instead of nil
 	dec := json.NewDecoder(wsClient.ws)
 	var err error
 	var msg Msg
 
 	err = dec.Decode(&msg)
 	if err != nil {
-		log.Fatal("decode error:", err)
+		fmt.Println("WSClient: failed to decode message")
+		//log.Fatal("decode error:", err)
+		return nil
 	}
 
 	//fmt.Printf("WSClient.receive: received: " + msg.Payload + "\n")

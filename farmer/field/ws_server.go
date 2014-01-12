@@ -29,7 +29,7 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 			link := NewLink(wsServer.node, ws, remoteNodeId)
 			wsServer.node.linkChannel <- link
 
-			fmt.Printf("WsServer.WsHandler: node " + string(wsServer.node.id) + " is now connected to node " + string(remoteNodeId) + "\n")
+			//fmt.Printf("WsServer.WsHandler: node " + string(wsServer.node.id) + " is now connected to node " + string(remoteNodeId) + "\n")
 
 			// send our node id to the remote node so that it can also create a link
 			reply := Msg{Type: Handshake, Payload: string(wsServer.node.id)}
