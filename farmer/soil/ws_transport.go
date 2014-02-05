@@ -34,7 +34,7 @@ func (wsTransport *WSTransport) CreateLocalEndPoint(localAddress string, localPo
 	go wsServer.start(wsTransport.localPort)
 }
 
-func (wsTransport *WSTransport) ConnectRemoteEndPoint(ipAddress string) {
+func (wsTransport *WSTransport) ConnectRemoteEndPoint(ipAddress string, isSuperNode bool) {
 	wsClient := makeWsClient(wsTransport.msgChannel, wsTransport.linkChannel, wsTransport.localNodeId)
 	wsTransport.wsClient = wsClient
 	wsClient.connect(ipAddress)

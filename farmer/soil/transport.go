@@ -5,5 +5,5 @@ type Transport interface {
 	SetLinkChannel(linkChannel chan *Link)
 	SetLocalNodeId(localNodeId NodeId)
 	CreateLocalEndPoint(localAddress string, localPort string)
-	ConnectRemoteEndPoint(address string)
+	ConnectRemoteEndPoint(address string, isSuperNode bool)
 }

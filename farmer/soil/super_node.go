@@ -14,7 +14,7 @@ type NodeId string
 
 const Broadcast NodeId = NodeId("BROADCAST")
 
-type Node struct {
+type SuperNode struct {
 	id               NodeId
 	wsServer         *WsServer
 	links            map[NodeId]*Link
@@ -26,105 +26,105 @@ type Node struct {
 	transport        Transport
 }
 
-func makeSuperNode(transport Transport, localAddress string, localPort string) (*Node, chan int) {
-	node := new(Node)
+func makeSuperNode(transport Transport, localAddress string, localPort string) (*SuperNode, chan int) {
+	snode := new(SuperNode)
 
-	node.localPort = localPort
-	node.links = make(map[NodeId]*Link)
-	node.transport = transport
+	snode.localPort = localPort
+	snode.links = make(map[NodeId]*Link)
+	snode.transport = transport
 
 	u, err := uuid.NewV4()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	node.id = NodeId(u.String())
+	snode.id = NodeId(u.String())
 
-	fmt.Println("Node: my node id is " + node.Id())
+	fmt.Println("SuperNode: my node id is " + snode.Id())
 
 	done := make(chan int)
-	node.msgChannel = make(chan Msg)
-	node.linkChannel = make(chan *Link)
+	snode.msgChannel = make(chan Msg)
+	snode.linkChannel = make(chan *Link)
 
 	// initialize transport
-	node.transport.SetLinkChannel(node.linkChannel)
-	node.transport.SetMsgChannel(node.msgChannel)
-	node.transport.SetLocalNodeId(node.id)
-	node.transport.CreateLocalEndPoint(localAddress, localPort)
+	snode.transport.SetLinkChannel(snode.linkChannel)
+	snode.transport.SetMsgChannel(snode.msgChannel)
+	snode.transport.SetLocalNodeId(snode.id)
+	snode.transport.CreateLocalEndPoint(localAddress, localPort)
 
 	go func() {
 		for {
 			select {
-			case msg := <-node.msgChannel:
-				if msg.Dst == node.id && msg.Type == Data {
-					fmt.Println("Node: RECEIVING a DATA message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
+			case msg := <-snode.msgChannel:
+				if msg.Dst == snode.id && msg.Type == Data {
+					fmt.Println("SuperNode: RECEIVING a DATA message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
 				} else {
-					fmt.Println("Node: FORWARDING message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
-					node.Forward(msg)
+					fmt.Println("SuperNode: FORWARDING message: <" + msg.Payload + "> from " + string(msg.Src) + " to " + string(msg.Dst))
+					snode.Forward(msg)
 				}
 
 				fmt.Println("")
-			case link := <-node.linkChannel:
+			case link := <-snode.linkChannel:
 				if link.state == Dead {
-					delete(node.links, link.remoteNodeId)
-					fmt.Println("Node: REMOVING link: <" + link.remoteNodeId + ">\n")
+					delete(snode.links, link.remoteNodeId)
+					fmt.Println("SuperNode: REMOVING link: <" + link.remoteNodeId + ">\n")
 				} else {
-					fmt.Println("Node: ADDING link: <" + link.remoteNodeId + ">\n")
-					node.links[link.remoteNodeId] = link
+					fmt.Println("SuperNode: ADDING link: <" + link.remoteNodeId + ">\n")
+					snode.links[link.remoteNodeId] = link
 				}
 			}
 		}
 	}()
 
-	return node, done
+	return snode, done
 }
 
-func (node *Node) Id() NodeId {
-	return node.id
+func (snode *SuperNode) Id() NodeId {
+	return snode.id
 }
 
-func (node *Node) SendStrToNode(str string, dst NodeId) {
+func (snode *SuperNode) SendStrToNode(str string, dst NodeId) {
 	msg := new(Msg)
 	msg.Type = Data
 	msg.Payload = str
-	msg.Src = node.id
+	msg.Src = snode.id
 	msg.Dst = dst
-	msg.Id = MsgId(string(node.id) + "-" + strconv.Itoa(node.seqNumberCounter))
+	msg.Id = MsgId(string(snode.id) + "-" + strconv.Itoa(snode.seqNumberCounter))
 
-	node.seqNumberCounter++
+	snode.seqNumberCounter++
 
 	// send the message on all our links
-	for _, link := range node.links {
+	for _, link := range snode.links {
 		link.send(msg)
 	}
 }
 
-func (node *Node) Announce() {
+func (snode *SuperNode) Announce() {
 	msg := new(Msg)
 	msg.Type = Discovery
-	msg.Payload = node.localAddr + ":" + node.localPort
-	msg.Src = node.id
+	msg.Payload = snode.localAddr + ":" + snode.localPort
+	msg.Src = snode.id
 	msg.Dst = Broadcast
-	msg.Id = MsgId(string(node.id) + "-" + strconv.Itoa(node.seqNumberCounter))
+	msg.Id = MsgId(string(snode.id) + "-" + strconv.Itoa(snode.seqNumberCounter))
 
-	node.seqNumberCounter++
+	snode.seqNumberCounter++
 
-	for _, link := range node.links {
+	for _, link := range snode.links {
 		link.send(msg)
 	}
 }
 
-func (node *Node) Forward(msg Msg) {
+func (snode *SuperNode) Forward(msg Msg) {
 	// send the message on all our links
-	for _, link := range node.links {
+	for _, link := range snode.links {
 		if msg.LastHop != link.remoteNodeId { // do not forward messages to a link where it came from
-			msg.LastHop = node.id
+			msg.LastHop = snode.id
 			link.send(&msg)
 		}
 	}
 }
 
-var localFlag = flag.String("local", "", "ip address and port which this node should bound to, e.g. --local localhost:1111")
+var localFlag = flag.String("local", "", "ip address and port which this super node should bound to, e.g. --local localhost:1111")
 var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http test server at port 8080 for debuging")
 
 func main() {

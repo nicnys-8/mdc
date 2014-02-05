@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type NodeId string
+//type NodeId string
 
 type Node struct {
 	id               NodeId
@@ -72,7 +72,7 @@ func (node *Node) Id() NodeId {
 }
 
 func (node *Node) Join(remoteAddress string) {
-	node.transport.ConnectRemoteEndPoint(remoteAddress)
+	node.transport.ConnectRemoteEndPoint(remoteAddress, false)
 }
 
 func (node *Node) Send(str string, dst NodeId) {

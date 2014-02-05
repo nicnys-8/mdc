@@ -28,8 +28,6 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 
 		if msg.Type == Handshake {
 			remoteNodeId := NodeId(msg.Payload)
-			fmt.Println("XXXXXX remoteNodeId=" + remoteNodeId)
-			fmt.Println("msg.Payload=" + msg.Payload)
 			link := makeLink(wsServer.linkChannel, ws, wsServer.localNodeId, remoteNodeId)
 			wsServer.linkChannel <- link
 
