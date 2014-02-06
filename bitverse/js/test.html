@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<script type="text/javascript">
+
+function uuid() {
+   var chars = '0123456789abcdef'.split('');
+
+   var uuid = [], rnd = Math.random, r;
+   uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
+   uuid[14] = '4'; // version 4
+
+   for (var i=0;i<36;i++) {
+      if (!uuid[i]) {
+         r = 0 | rnd()*16;
+         uuid[i] = chars[(i == 19) ? (r & 0x3) | 0x8 : r & 0xf];
+      }
+   }
+
+   return uuid.join('');
+}
+
+function WebSocketTest() {
+     // Let us open a web socket
+     var ws = new WebSocket("ws://localhost:2433/node");
+     ws.onopen = function() {
+      var msg = {"Type":0,"Payload":uuid(),"SeqNr":0,"Src":"","Dst":""};
+
+        ws.send(JSON.stringify(msg));
+        //console.log("Message is sent...");
+     };
+
+     ws.onmessage = function (evt) { 
+        var received_msg = evt.data;
+
+        // {"Type":0,"Payload":"3399531b-ca3d-4894-5ad6-c1f965486bb4","SeqNr":0,"Src":"","Dst":""}
+        console.log("Message is received..." + evt.data);
+     };
+
+     ws.onclose = function() { 
+        // websocket is closed.
+        console.log("Connection is closed..."); 
+     };
+  
+
+}
+
+</script>
+</head>
+<body>
+<div id="sse">
+   <a href="javascript:WebSocketTest()">Run WebSocket</a>
+</div>
+</body>
+</html>
