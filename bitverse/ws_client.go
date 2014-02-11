@@ -57,13 +57,12 @@ func (wsClient *WsClient) send(msg *Msg) {
 }
 
 func (wsClient *WsClient) handshake() *Link {
-	msg := Msg{Type: Handshake, Payload: string(wsClient.localNodeId)}
+	msg := Msg{Type: Handshake, Payload: wsClient.localNodeId.String()}
 
 	wsClient.send(&msg)
 	reply := wsClient.receive()
 
-	remoteNodeId := NodeId(reply.Payload)
-	fmt.Println("wsClient.localNodeId=" + wsClient.localNodeId)
+	remoteNodeId := makeNodeIdFromString(reply.Payload)
 	link := makeLink(wsClient.linkChannel, wsClient.ws, wsClient.localNodeId, remoteNodeId)
 
 	return link

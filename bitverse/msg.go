@@ -3,18 +3,15 @@ package main
 const (
 	Handshake = iota
 	Data
-	Discovery
+	Announce
 	Bye
 )
 
 type MsgId string
 
 type Msg struct {
-	Type        int
-	Payload     string
-	Id          MsgId
-	Src         NodeId
-	Dst         NodeId
-	RouteRecord map[NodeId]NodeId
-	LastHop     NodeId
+	Type    int
+	Payload string
+	Src     string
+	Dst     string
 }

@@ -37,8 +37,9 @@ func (link *Link) send(msg *Msg) {
 	err := enc.Encode(msg)
 
 	if err != nil {
-		fmt.Printf("Link: detecting broken link <" + string(link.remoteNodeId) + ">\n")
+		fmt.Printf("Link: detecting broken link <" + link.remoteNodeId.String() + ">\n")
 		link.state = Dead
 		link.linkChannel <- link // notify the node so it can remove it
+		fmt.Println("done noitifying node")
 	}
 }
