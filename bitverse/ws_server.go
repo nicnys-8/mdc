@@ -22,7 +22,7 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 		err = dec.Decode(&msg)
 
 		if err != nil {
-			fmt.Println("WsServer.WsHandler: connection closed")
+			fmt.Println("WsServer.WsHandler: connection closed\n")
 			break
 		}
 

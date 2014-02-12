@@ -11,7 +11,7 @@ import (
 type SuperNode struct {
 	id               NodeId
 	wsServer         *WsServer
-	links            map[NodeId]*Link
+	links            map[string]*Link
 	msgChannel       chan Msg
 	linkChannel      chan *Link
 	seqNumberCounter int
@@ -24,14 +24,14 @@ func makeSuperNode(transport Transport, localAddress string, localPort string) (
 	superNode := new(SuperNode)
 
 	superNode.localPort = localPort
-	superNode.links = make(map[NodeId]*Link)
+	superNode.links = make(map[string]*Link)
 	superNode.transport = transport
 
 	superNode.id = generateNodeId()
 
 	done := make(chan int)
 	superNode.msgChannel = make(chan Msg)
-	superNode.linkChannel = make(chan *Link)
+	superNode.linkChannel = make(chan *Link, 10)
 
 	// initialize transport
 	superNode.transport.SetLinkChannel(superNode.linkChannel)
@@ -56,13 +56,14 @@ func makeSuperNode(transport Transport, localAddress string, localPort string) (
 
 				fmt.Println("")
 			case link := <-superNode.linkChannel:
-				fmt.Println("SuperNode: REMOVING link: <" + link.remoteNodeId.String() + ">\n")
 				if link.state == Dead {
-					delete(superNode.links, link.remoteNodeId)
 					fmt.Println("SuperNode: REMOVING link: <" + link.remoteNodeId.String() + ">\n")
+					delete(superNode.links, link.remoteNodeId.String())
+					//fmt.Println(superNode.links)
 				} else {
 					fmt.Println("SuperNode: ADDING link: <" + link.remoteNodeId.String() + ">\n")
-					superNode.links[link.remoteNodeId] = link
+					superNode.links[link.remoteNodeId.String()] = link
+					//fmt.Println(superNode.links)
 				}
 			}
 		}
