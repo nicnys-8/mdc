@@ -1,4 +1,4 @@
-package main
+package bitverse
 
 type WSTransport struct {
 	Transport
@@ -10,7 +10,7 @@ type WSTransport struct {
 	localNodeId NodeId
 }
 
-func makeWSTransport() *WSTransport {
+func MakeWSTransport() *WSTransport {
 	wsTransport := new(WSTransport)
 	return wsTransport
 }

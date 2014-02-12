@@ -1,4 +1,4 @@
-package main
+package bitverse
 
 type Transport interface {
 	SetMsgChannel(msgChannel chan Msg)

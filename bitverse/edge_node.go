@@ -1,9 +1,7 @@
-package main
+package bitverse
 
 import (
-	"flag"
 	"fmt"
-	//"strconv"
 	"time"
 )
 
@@ -17,7 +15,7 @@ type EdgeNode struct {
 	transport        Transport
 }
 
-func makeEdgeNode(transport Transport) (*EdgeNode, chan int) {
+func MakeEdgeNode(transport Transport) (*EdgeNode, chan int) {
 	edgeNode := new(EdgeNode)
 	edgeNode.transport = transport
 	edgeNode.id = generateNodeId()
@@ -97,31 +95,4 @@ func (edgeNode *EdgeNode) Test() {
 			counter++
 		}
 	}()
-}
-
-var joinFlag = flag.String("join", "", "ip address and port to a node to join, e.g. --join localhost:2222")
-
-func main() {
-	flag.Parse()
-
-	transport := makeWSTransport()
-	edgeNode, done := makeEdgeNode(transport)
-	edgeNode.Test()
-
-	ticker := time.NewTicker(time.Millisecond * 2000)
-	go func() {
-		for t := range ticker.C {
-			fmt.Println("Sending announcement", t)
-			edgeNode.Announce()
-		}
-	}()
-
-	// join super node
-	remoteAddress := *joinFlag
-	if remoteAddress != "" {
-		fmt.Println("EdgeNode: joining node at " + remoteAddress)
-		go edgeNode.Join(remoteAddress)
-	}
-
-	<-done
 }

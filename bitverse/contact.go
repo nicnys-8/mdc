@@ -1,4 +1,4 @@
-package main
+package bitverse
 
 type Contact struct {
 	id      NodeId

@@ -1,11 +1,7 @@
-package main
+package bitverse
 
 import (
-	"flag"
 	"fmt"
-	"log"
-	"net/http"
-	"strings"
 )
 
 type SuperNode struct {
@@ -20,7 +16,7 @@ type SuperNode struct {
 	transport        Transport
 }
 
-func makeSuperNode(transport Transport, localAddress string, localPort string) (*SuperNode, chan int) {
+func MakeSuperNode(transport Transport, localAddress string, localPort string) (*SuperNode, chan int) {
 	superNode := new(SuperNode)
 
 	superNode.localPort = localPort
@@ -83,26 +79,4 @@ func (superNode *SuperNode) Forward(msg Msg) {
 			link.send(&msg)
 		}
 	}
-}
-
-var localFlag = flag.String("local", "", "ip address and port which this super node should bound to, e.g. --local localhost:1111")
-var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http test server at port 8080 for debuging")
-
-func main() {
-	flag.Parse()
-
-	// TODO: check that the localFlag format is correct, it should be host:port
-	temp := strings.Split(*localFlag, ":")
-	localAddr := temp[0]
-	localPort := temp[1]
-
-	transport := makeWSTransport()
-	_, done := makeSuperNode(transport, localAddr, localPort)
-
-	if *testHttpServerFlag {
-		fmt.Println("Starting a HTTP test server at port 8080")
-		log.Fatal(http.ListenAndServe(":8080", http.FileServer(http.Dir("./js/"))))
-	}
-
-	<-done
 }

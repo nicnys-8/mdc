@@ -1,4 +1,4 @@
-package main
+package bitverse
 
 import (
 	"github.com/nu7hatch/gouuid"

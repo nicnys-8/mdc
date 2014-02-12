@@ -1,4 +1,4 @@
-package main
+package bitverse
 
 const (
 	Handshake = iota
