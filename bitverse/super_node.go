@@ -5,61 +5,51 @@ import (
 )
 
 type SuperNode struct {
-	id               NodeId
-	wsServer         *WsServer
-	links            map[string]*Link
-	msgChannel       chan Msg
-	linkChannel      chan *Link
-	seqNumberCounter int
-	localAddr        string
-	localPort        string
-	transport        Transport
+	id                NodeId
+	wsServer          *WsServer
+	children          map[string]*RemoteNode
+	msgChannel        chan Msg
+	remoteNodeChannel chan *RemoteNode
+	seqNumberCounter  int
+	localAddr         string
+	localPort         string
+	transport         Transport
 }
 
 func MakeSuperNode(transport Transport, localAddress string, localPort string) (*SuperNode, chan int) {
 	superNode := new(SuperNode)
 
 	superNode.localPort = localPort
-	superNode.links = make(map[string]*Link)
+	superNode.children = make(map[string]*RemoteNode)
 	superNode.transport = transport
 
 	superNode.id = generateNodeId()
+	superNode.transport.SetLocalNodeId(superNode.id)
 
 	done := make(chan int)
 	superNode.msgChannel = make(chan Msg)
-	superNode.linkChannel = make(chan *Link, 10)
+	superNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 
-	// initialize transport
-	superNode.transport.SetLinkChannel(superNode.linkChannel)
-	superNode.transport.SetMsgChannel(superNode.msgChannel)
-	superNode.transport.SetLocalNodeId(superNode.id)
-	superNode.transport.CreateLocalEndPoint(localAddress, localPort)
+	go superNode.transport.Listen(localAddress, localPort, superNode.remoteNodeChannel, superNode.msgChannel)
 
 	go func() {
 		for {
 			select {
 			case msg := <-superNode.msgChannel:
-				if msg.Dst == superNode.id.String() && msg.Type == Data {
-					fmt.Println("SuperNode: got DATA message <" + msg.Payload + "> from " + msg.Src + " to " + msg.Dst)
-
-				} else if msg.Type == Announce {
-					fmt.Println("SuperNode: got ANNOUNCE message from <" + msg.Src + ">")
+				fmt.Println("supernode: received " + msg.String())
+				if msg.Dst == superNode.id.String() && msg.Type == Data { // ignore
+				} else if msg.Type == Heartbeat {
 					superNode.Forward(msg)
-				} else {
-					fmt.Println("SuperNode: forwarding message <" + msg.Payload + "> from " + msg.Src + " to " + msg.Dst)
+				} else { // to someone else, forward
 					superNode.Forward(msg)
 				}
-
-				fmt.Println("")
-			case link := <-superNode.linkChannel:
-				if link.state == Dead {
-					fmt.Println("SuperNode: REMOVING link: <" + link.remoteNodeId.String() + ">\n")
-					delete(superNode.links, link.remoteNodeId.String())
-					//fmt.Println(superNode.links)
+			case remoteNode := <-superNode.remoteNodeChannel:
+				if remoteNode.state == Dead {
+					delete(superNode.children, remoteNode.id.String())
+					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.id.String(), len(superNode.children))
 				} else {
-					fmt.Println("SuperNode: ADDING link: <" + link.remoteNodeId.String() + ">\n")
-					superNode.links[link.remoteNodeId.String()] = link
-					//fmt.Println(superNode.links)
+					superNode.children[remoteNode.id.String()] = remoteNode
+					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.id.String(), len(superNode.children))
 				}
 			}
 		}
@@ -74,9 +64,10 @@ func (superNode *SuperNode) Id() NodeId {
 
 func (superNode *SuperNode) Forward(msg Msg) {
 	// send the message on all our links
-	for _, link := range superNode.links {
-		if msg.Src != link.remoteNodeId.String() { // do not forward messages to a link where it came from
-			link.send(&msg)
+	for _, remoteNode := range superNode.children {
+		if msg.Src != remoteNode.id.String() { // do not forward messages to a remote node where it came from
+			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.id.String())
+			remoteNode.send(&msg)
 		}
 	}
 }

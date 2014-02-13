@@ -5,50 +5,69 @@ import (
 	"time"
 )
 
+var HEARTBEAT_RATE time.Duration = 2
+
 type EdgeNode struct {
-	id               NodeId
-	wsServer         *WsServer
-	superNodeLink    *Link
-	msgChannel       chan Msg
-	linkChannel      chan *Link
-	seqNumberCounter int
-	transport        Transport
+	id                NodeId
+	wsServer          *WsServer
+	superNodeLink     *RemoteNode
+	msgChannel        chan Msg
+	remoteNodeChannel chan *RemoteNode
+	seqNumberCounter  int
+	transport         Transport
+	services          map[string]*Service
 }
 
 func MakeEdgeNode(transport Transport) (*EdgeNode, chan int) {
 	edgeNode := new(EdgeNode)
 	edgeNode.transport = transport
+
 	edgeNode.id = generateNodeId()
+	edgeNode.transport.SetLocalNodeId(edgeNode.id)
 
 	done := make(chan int)
 	edgeNode.msgChannel = make(chan Msg)
-	edgeNode.linkChannel = make(chan *Link)
-
-	// initialize transport
-	edgeNode.transport.SetLinkChannel(edgeNode.linkChannel)
-	edgeNode.transport.SetMsgChannel(edgeNode.msgChannel)
-	edgeNode.transport.SetLocalNodeId(edgeNode.id)
+	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
+	edgeNode.services = make(map[string]*Service)
 
 	go func() {
 		for {
 			select {
 			case msg := <-edgeNode.msgChannel:
+				fmt.Println("edgenode: received " + msg.String())
 				if msg.Dst == edgeNode.id.String() && msg.Type == Data {
-					fmt.Println("EdgeNode: got DATA message <" + msg.Payload + "> from " + msg.Src + " to " + msg.Dst)
-				} else if msg.Type == Announce {
-					fmt.Println("SuperNode: got ANNOUNCE message from <" + msg.Src + ">")
-				} else {
-					fmt.Println("EdgeNode: ERROR got a very strange message <" + msg.Payload + "> from " + msg.Src + " to " + msg.Dst)
+					service := edgeNode.services[msg.Service]
+					if service == nil {
+						fmt.Println("edgenode: failed to deliver message, no such service " + msg.Service)
+					} else {
+						observer := service.observer
+						if observer == nil {
+							fmt.Println("edgenode: failed to deliver message, no observer registered")
+						} else {
+							observer.OnDeliver(&msg)
+						}
+					}
+				} else if msg.Type == Heartbeat {
+					//fmt.Println("SuperNode: got HEARBEAT message from <" + msg.Src + ">")
+				} else { // ignore
 				}
-			case link := <-edgeNode.linkChannel:
-				if link.state == Dead {
-					fmt.Println("EdgeNode: ERROR we just lost our connection to the super node <" + link.remoteNodeId.String() + ">\n")
+			case remoteNode := <-edgeNode.remoteNodeChannel:
+				if remoteNode.state == Dead {
+					fmt.Println("edgenode: ERROR we just lost our connection to the super node <" + remoteNode.id.String() + ">")
 					edgeNode.superNodeLink = nil
 				} else {
-					fmt.Println("EdgeNode: adding link to super node <" + link.remoteNodeId.String() + ">\n")
-					edgeNode.superNodeLink = link
+					fmt.Println("edgenode: adding link to super node <" + remoteNode.id.String() + ">")
+					edgeNode.superNodeLink = remoteNode
 				}
 			}
+		}
+	}()
+
+	ticker := time.NewTicker(time.Millisecond * HEARTBEAT_RATE * 1000)
+	go func() {
+		for t := range ticker.C {
+			fmt.Println("edgenode: sending heartbeat", t)
+			edgeNode.SendHeartbeat()
 		}
 	}()
 
@@ -60,39 +79,35 @@ func (edgeNode *EdgeNode) Id() NodeId {
 }
 
 func (edgeNode *EdgeNode) Join(remoteAddress string) {
-	edgeNode.transport.ConnectRemoteEndPoint(remoteAddress, false)
+	edgeNode.transport.ConnectToNode(remoteAddress, edgeNode.remoteNodeChannel, edgeNode.msgChannel)
 }
 
-func (edgeNode *EdgeNode) Send(str string, dst NodeId) {
-	msg := new(Msg)
-	msg.Type = Data
-	msg.Payload = str
-	msg.Src = edgeNode.id.String()
-	msg.Dst = dst.String()
+func (edgeNode *EdgeNode) GetService(name string, observer ServiceObserver) *Service {
+	if edgeNode.services[name] == nil {
+		service := composeService(name, observer, edgeNode)
+		edgeNode.services[name] = service
+		return service
+	} else {
+		return edgeNode.services[name]
+	}
+}
 
+func (edgeNode *EdgeNode) SendHeartbeat() {
+	msg := ComposeHeartbeatMsg(edgeNode.id.String(), edgeNode.superNodeLink.id.String())
 	edgeNode.superNodeLink.send(msg)
 }
 
-func (edgeNode *EdgeNode) Announce() {
-	msg := new(Msg)
-	msg.Type = Announce
-	msg.Src = edgeNode.id.String()
-
-	edgeNode.superNodeLink.send(msg)
+func (edgeNode *EdgeNode) Checkout(id string, rev int) (dict *Dictionary) {
+	return nil
 }
 
-func (edgeNode *EdgeNode) Test() {
-	fmt.Printf("EdgeNode.Test: \n")
+func (edgeNode *EdgeNode) Checkin(dictionary *Dictionary) (rev int) {
+	return 0
+}
 
-	go func() {
-		counter := 0
-		for {
-			msgStr := "hi"
-			time.Sleep(2 * time.Second)
-			if edgeNode.superNodeLink != nil {
-				edgeNode.Send(msgStr, edgeNode.superNodeLink.remoteNodeId)
-			}
-			counter++
-		}
-	}()
+/// PRIVATE
+
+func (edgeNode *EdgeNode) send(dst string, payload string, service string) {
+	msg := ComposeDataMsg(edgeNode.id.String(), dst, payload, service)
+	edgeNode.superNodeLink.send(msg)
 }
