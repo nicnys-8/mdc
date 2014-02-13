@@ -8,16 +8,16 @@ import (
 )
 
 type WsClient struct {
-	msgChannel  chan Msg
-	linkChannel chan *Link
-	localNodeId NodeId
-	ws          *websocket.Conn
+	msgChannel        chan Msg
+	remoteNodeChannel chan *RemoteNode
+	localNodeId       NodeId
+	ws                *websocket.Conn
 }
 
-func makeWsClient(msgChannel chan Msg, linkChannel chan *Link, localNodeId NodeId) *WsClient {
+func makeWsClient(msgChannel chan Msg, remoteNodeChannel chan *RemoteNode, localNodeId NodeId) *WsClient {
 	wsClient := new(WsClient)
 	wsClient.msgChannel = msgChannel
-	wsClient.linkChannel = linkChannel
+	wsClient.remoteNodeChannel = remoteNodeChannel
 	wsClient.localNodeId = localNodeId
 
 	return wsClient
@@ -29,13 +29,13 @@ func (wsClient *WsClient) connect(ipAddress string) {
 
 	var err error
 	wsClient.ws, err = websocket.Dial(url, "", origin)
-	link := wsClient.handshake()
+	remoteNode := wsClient.handshake()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	wsClient.linkChannel <- link
+	wsClient.remoteNodeChannel <- remoteNode
 
 	for {
 		msg := wsClient.receive()
@@ -52,20 +52,20 @@ func (wsClient *WsClient) send(msg *Msg) {
 	enc := json.NewEncoder(wsClient.ws)
 	err := enc.Encode(msg)
 	if err != nil {
-		fmt.Println("WSClient: failed to send message")
+		fmt.Println("wsclient: failed to send message")
 	}
 }
 
-func (wsClient *WsClient) handshake() *Link {
+func (wsClient *WsClient) handshake() *RemoteNode {
 	msg := Msg{Type: Handshake, Payload: wsClient.localNodeId.String()}
 
 	wsClient.send(&msg)
 	reply := wsClient.receive()
 
 	remoteNodeId := makeNodeIdFromString(reply.Payload)
-	link := makeLink(wsClient.linkChannel, wsClient.ws, wsClient.localNodeId, remoteNodeId)
+	remoteNode := makeRemoteNode(wsClient.remoteNodeChannel, wsClient.ws, wsClient.localNodeId, remoteNodeId)
 
-	return link
+	return remoteNode
 }
 
 func (wsClient *WsClient) receive() *Msg { // TODO: return error instead of nil
@@ -75,7 +75,7 @@ func (wsClient *WsClient) receive() *Msg { // TODO: return error instead of nil
 
 	err = dec.Decode(&msg)
 	if err != nil {
-		fmt.Println("WSClient: failed to decode message")
+		fmt.Println("wsclient: failed to decode message")
 		return nil
 	}
 

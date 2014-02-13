@@ -1,9 +1,7 @@
 package bitverse
 
 type Transport interface {
-	SetMsgChannel(msgChannel chan Msg)
-	SetLinkChannel(linkChannel chan *Link)
 	SetLocalNodeId(localNodeId NodeId)
-	CreateLocalEndPoint(localAddress string, localPort string)
-	ConnectRemoteEndPoint(address string, isSuperNode bool)
+	Listen(localAddress string, localPort string, remoteNodeChannels chan *RemoteNode, msgChannel chan Msg)
+	ConnectToNode(remoteAddress string, remoteNodeChannels chan *RemoteNode, msgChannel chan Msg)
 }
