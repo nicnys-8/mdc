@@ -1,17 +1,19 @@
 package bitverse
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"github.com/nu7hatch/gouuid"
 	"log"
 )
 
 type NodeId struct {
-	unqiueId string
+	hashkey string
 }
 
-func makeNodeIdFromString(str string) NodeId {
+func makeNodeIdFromString(id string) NodeId {
 	nodeId := NodeId{}
-	nodeId.unqiueId = str
+	nodeId.hashkey = id
 
 	return nodeId
 }
@@ -24,11 +26,18 @@ func generateNodeId() NodeId {
 		log.Fatal(err)
 	}
 
-	nodeId.unqiueId = u.String()
+	// calculate sha-1 hash
+	hasher := sha1.New()
+	hasher.Write([]byte(u.String()))
+	nodeId.hashkey = base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 
 	return nodeId
 }
 
+func (nodeId *NodeId) Hashkey() string {
+	return nodeId.hashkey
+}
+
 func (nodeId *NodeId) String() string {
-	return nodeId.unqiueId
+	return nodeId.hashkey
 }

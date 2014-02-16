@@ -5,50 +5,55 @@ import (
 	"mdc/bitverse"
 )
 
+var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7"
+var secret = "x very very very very secret key" // 16, 24, or 32 bytes
+
 /// SERVICE OBSERVER
 
-type MyServiceObserver struct {
+type MsgServiceObserver struct {
 }
 
-func (myService *MyServiceObserver) OnError(err error) {
-}
+func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.MsgService, msg *bitverse.Msg) {
+	fmt.Println("got a message <" + msg.Payload + ">" + " from " + msg.Src)
 
-func (myService *MyServiceObserver) OnDeliver(msg *bitverse.Msg) {
-	fmt.Println("got a message " + msg.String())
+	// send a reply back
+	if msg.Payload == "hello" {
+		msgService.Send(msg.Src, "hi dude")
+	}
+
 }
 
 /// BITVERSE OBSERVER
 
-type MyBitverseObserver struct {
+type BitverseObserver struct {
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnError(err error) {
+func (bitverseObserver *BitverseObserver) OnSiblingJoin(edgeNode *bitverse.EdgeNode, id string) {
+	fmt.Println("sibling " + id + " joined")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingJoin(nodeId string) {
-	fmt.Println("sibling " + nodeId + " joined")
+func (bitverseObserver *BitverseObserver) OnSiblingExit(edgeNode *bitverse.EdgeNode, id string) {
+	fmt.Println("sibling " + id + " exit")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingExit(nodeId string) {
-	fmt.Println("sibling " + nodeId + " exit")
+func (bitverseObserver *BitverseObserver) OnSiblingHeartbeat(edgeNode *bitverse.EdgeNode, id string) {
+	fmt.Println("sibling " + id + " heartbeat")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingHeartbeat(nodeId string) {
-	fmt.Println("sibling " + nodeId + " heartbeat")
+func (bitverseObserver *BitverseObserver) OnChildrenReply(edgeNode *bitverse.EdgeNode, id string, children []string) {
+	fmt.Println("received children list from " + id)
+	for _, childNodeId := range children {
+		fmt.Println("child: " + childNodeId)
+
+		msgService := edgeNode.GetMsgService(serviceId)
+		msgService.Send(childNodeId, "hello")
+	}
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnChildrenReply(nodeId string) {
-	fmt.Println("received children list from " + nodeId)
-}
+func (bitverseObserver *BitverseObserver) OnConnected(edgeNode *bitverse.EdgeNode, remoteNode *bitverse.RemoteNode) {
+	fmt.Println("now connected to super node " + remoteNode.Id())
 
-func (myBitverseObserver *MyBitverseObserver) OnConnected(edgeNode *bitverse.EdgeNode, remoteNode *bitverse.RemoteNode) {
-	fmt.Println("now connected to super node " + remoteNode.Id.String())
 	remoteNode.SendChildrenRequest()
-
-	serviceObserver := new(MyServiceObserver)
-
-	myService := edgeNode.GetService("myservice", serviceObserver)
-	myService.Nop()
 }
 
 /// MAIN
@@ -56,10 +61,10 @@ func (myBitverseObserver *MyBitverseObserver) OnConnected(edgeNode *bitverse.Edg
 func main() {
 	var done chan int
 
-	bitverseObserver := new(MyBitverseObserver)
+	edgeNode, done := bitverse.MakeEdgeNode(bitverse.MakeWSTransport(), new(BitverseObserver))
 
-	transport := bitverse.MakeWSTransport()
-	edgeNode, done := bitverse.MakeEdgeNode(transport, bitverseObserver)
+	msgServiceObserver := new(MsgServiceObserver)
+	edgeNode.CreateMsgService(secret, serviceId, msgServiceObserver)
 
 	go edgeNode.Connect("localhost:1111")
 

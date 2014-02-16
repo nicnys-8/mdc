@@ -16,25 +16,33 @@ const (
 type RemoteNode struct {
 	remoteNodeChannel chan *RemoteNode
 	writer            io.Writer
-	Id                NodeId
-	localNodeId       NodeId
+	id                string
+	remoteId          string
 	state             RemoteNodeState
 }
 
-func makeRemoteNode(remoteNodeChannel chan *RemoteNode, writer io.Writer, localNodeId NodeId, remoteNodeId NodeId) *RemoteNode {
+func makeRemoteNode(remoteNodeChannel chan *RemoteNode, writer io.Writer, remoteId string, id string) *RemoteNode {
 	remoteNode := new(RemoteNode)
 	remoteNode.remoteNodeChannel = remoteNodeChannel
 	remoteNode.writer = writer
-	remoteNode.Id = remoteNodeId
-	remoteNode.localNodeId = localNodeId
+	remoteNode.id = id
+	remoteNode.remoteId = remoteId
 	remoteNode.state = Alive
 
 	return remoteNode
 }
 
 func (remoteNode *RemoteNode) SendChildrenRequest() {
-	msg := ComposeChildrenRequestMsg(remoteNode.localNodeId.String(), remoteNode.Id.String())
+	msg := ComposeChildrenRequestMsg(remoteNode.remoteId, remoteNode.id)
 	remoteNode.send(msg)
+}
+
+func (remoteNode *RemoteNode) Id() string {
+	return remoteNode.id
+}
+
+func (remoteNode *RemoteNode) RemoteId() string {
+	return remoteNode.remoteId
 }
 
 /// PRIVATE

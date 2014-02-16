@@ -19,27 +19,24 @@ var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http tes
 type MyBitverseObserver struct {
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnError(err error) {
-}
-
-func (myBitverseObserver *MyBitverseObserver) OnSiblingJoin(nodeId string) {
+func (myBitverseObserver *MyBitverseObserver) OnSiblingJoin(edgeNode *bitverse.EdgeNode, nodeId string) {
 	fmt.Println("sibling " + nodeId + " joined")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingExit(nodeId string) {
+func (myBitverseObserver *MyBitverseObserver) OnSiblingExit(edgeNode *bitverse.EdgeNode, nodeId string) {
 	fmt.Println("sibling " + nodeId + " exit")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingHeartbeat(nodeId string) {
+func (myBitverseObserver *MyBitverseObserver) OnSiblingHeartbeat(edgeNode *bitverse.EdgeNode, nodeId string) {
 	fmt.Println("sibling " + nodeId + " heartbeat")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnChildrenReply(nodeId string) {
+func (myBitverseObserver *MyBitverseObserver) OnChildrenReply(edgeNode *bitverse.EdgeNode, nodeId string, children []string) {
 	fmt.Println("received children list from " + nodeId)
 }
 
 func (myBitverseObserver *MyBitverseObserver) OnConnected(edgeNode *bitverse.EdgeNode, remoteNode *bitverse.RemoteNode) {
-	fmt.Println("now connected to super node " + remoteNode.Id.String())
+	fmt.Println("now connected to super node " + remoteNode.Id())
 }
 
 /// MAIN

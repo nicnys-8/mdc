@@ -27,12 +27,12 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 		}
 
 		if msg.Type == Handshake {
-			remoteNodeId := makeNodeIdFromString(msg.Payload)
-			remoteNode := makeRemoteNode(wsServer.remoteNodeChannel, ws, wsServer.localNodeId, remoteNodeId)
+			//remoteNodeId := makeNodeIdFromString(msg.Src)
+			remoteNode := makeRemoteNode(wsServer.remoteNodeChannel, ws, wsServer.localNodeId.String(), msg.Src)
 			wsServer.remoteNodeChannel <- remoteNode
 
 			// send our node id to the remote node so that it can also create a link
-			reply := Msg{Type: Handshake, Payload: string(wsServer.localNodeId.String())}
+			reply := ComposeHandshakeMsg(wsServer.localNodeId.String())
 			enc := json.NewEncoder(ws)
 			enc.Encode(reply)
 		} else {

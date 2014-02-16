@@ -4,7 +4,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
 	"fmt"
-	"log"
+	"os"
 )
 
 type WsClient struct {
@@ -29,11 +29,12 @@ func (wsClient *WsClient) connect(ipAddress string) {
 
 	var err error
 	wsClient.ws, err = websocket.Dial(url, "", origin)
-	remoteNode := wsClient.handshake()
-
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("failed to connect to supernode at " + ipAddress + ", connection refused")
+		os.Exit(0)
 	}
+
+	remoteNode := wsClient.handshake()
 
 	wsClient.remoteNodeChannel <- remoteNode
 
@@ -57,13 +58,13 @@ func (wsClient *WsClient) send(msg *Msg) {
 }
 
 func (wsClient *WsClient) handshake() *RemoteNode {
-	msg := Msg{Type: Handshake, Payload: wsClient.localNodeId.String()}
+	msg := ComposeHandshakeMsg(wsClient.localNodeId.String())
 
-	wsClient.send(&msg)
+	wsClient.send(msg)
 	reply := wsClient.receive()
 
-	remoteNodeId := makeNodeIdFromString(reply.Payload)
-	remoteNode := makeRemoteNode(wsClient.remoteNodeChannel, wsClient.ws, wsClient.localNodeId, remoteNodeId)
+	remoteNodeId := makeNodeIdFromString(reply.Src)
+	remoteNode := makeRemoteNode(wsClient.remoteNodeChannel, wsClient.ws, wsClient.localNodeId.String(), remoteNodeId.String())
 
 	return remoteNode
 }

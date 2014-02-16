@@ -1,11 +1,12 @@
 package bitverse
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
 type SuperNode struct {
-	id                NodeId
+	nodeId            NodeId
 	wsServer          *WsServer
 	children          map[string]*RemoteNode
 	msgChannel        chan Msg
@@ -23,8 +24,10 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 	superNode.children = make(map[string]*RemoteNode)
 	superNode.transport = transport
 
-	superNode.id = generateNodeId()
-	superNode.transport.SetLocalNodeId(superNode.id)
+	superNode.nodeId = generateNodeId()
+	fmt.Println("supernode: my id is " + superNode.Id())
+
+	superNode.transport.SetLocalNodeId(superNode.nodeId)
 
 	done := make(chan int)
 	superNode.msgChannel = make(chan Msg)
@@ -37,21 +40,21 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 			select {
 			case msg := <-superNode.msgChannel:
 				fmt.Println("supernode: received " + msg.String())
-				if msg.Dst == superNode.id.String() && msg.Type == Data { // ignore
+				if msg.Dst == superNode.Id() && msg.Type == Data { // ignore
 				} else if msg.Type == Heartbeat {
 					superNode.forwardToChildren(msg)
 				} else if msg.Type == Children {
 					superNode.sendChildrenReply(msg.Src)
-				} else { // to someone else, forward
+				} else {
 					superNode.forwardToChild(msg)
 				}
 			case remoteNode := <-superNode.remoteNodeChannel:
 				if remoteNode.state == Dead {
-					delete(superNode.children, remoteNode.Id.String())
-					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.Id.String(), len(superNode.children))
+					delete(superNode.children, remoteNode.Id())
+					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.Id(), len(superNode.children))
 				} else {
-					superNode.children[remoteNode.Id.String()] = remoteNode
-					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.Id.String(), len(superNode.children))
+					superNode.children[remoteNode.Id()] = remoteNode
+					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.Id(), len(superNode.children))
 				}
 			}
 		}
@@ -60,26 +63,36 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 	return superNode, done
 }
 
-func (superNode *SuperNode) Id() NodeId {
-	return superNode.id
+func (superNode *SuperNode) Id() string {
+	return superNode.nodeId.String()
 }
 
 /// PRIVATE
 
 func (superNode *SuperNode) sendChildrenReply(nodeId string) {
 	fmt.Println("supernode: sending children reply to " + nodeId)
-	//reply := ""
-
+	childrenIds := make([]string, len(superNode.children))
+	i := 0
 	for childNodeId, _ := range superNode.children {
-		fmt.Println("child node id = " + childNodeId)
+		childrenIds[i] = childNodeId
+		i++
+	}
+
+	json, _ := json.Marshal(childrenIds)
+	reply := ComposeChildrenReplyMsg(superNode.Id(), nodeId, string(json))
+
+	remoteNode := superNode.children[nodeId]
+
+	if remoteNode != nil {
+		remoteNode.send(reply)
 	}
 }
 
 func (superNode *SuperNode) forwardToChild(msg Msg) {
 	// send the message on all our links
 	for _, remoteNode := range superNode.children {
-		if msg.Src != remoteNode.Id.String() && msg.Dst == remoteNode.Id.String() { // do not forward messages to a remote node where it came from
-			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id.String())
+		if msg.Src != remoteNode.Id() && msg.Dst == remoteNode.Id() { // do not forward messages to a remote node where it came from
+			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
 			remoteNode.send(&msg)
 		}
 	}
@@ -88,8 +101,8 @@ func (superNode *SuperNode) forwardToChild(msg Msg) {
 func (superNode *SuperNode) forwardToChildren(msg Msg) {
 	// send the message on all our links
 	for _, remoteNode := range superNode.children {
-		if msg.Src != remoteNode.Id.String() { // do not forward messages to a remote node where it came from
-			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id.String())
+		if msg.Src != remoteNode.Id() { // do not forward messages to a remote node where it came from
+			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
 			remoteNode.send(&msg)
 		}
 	}
