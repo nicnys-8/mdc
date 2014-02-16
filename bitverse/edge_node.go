@@ -10,17 +10,19 @@ var HEARTBEAT_RATE time.Duration = 2
 type EdgeNode struct {
 	id                NodeId
 	wsServer          *WsServer
-	superNodeLink     *RemoteNode
+	superNode         *RemoteNode
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
 	seqNumberCounter  int
 	transport         Transport
 	services          map[string]*Service
+	bitverseObserver  BitverseObserver
 }
 
-func MakeEdgeNode(transport Transport) (*EdgeNode, chan int) {
+func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*EdgeNode, chan int) {
 	edgeNode := new(EdgeNode)
 	edgeNode.transport = transport
+	edgeNode.bitverseObserver = bitverseObserver
 
 	edgeNode.id = generateNodeId()
 	edgeNode.transport.SetLocalNodeId(edgeNode.id)
@@ -48,16 +50,23 @@ func MakeEdgeNode(transport Transport) (*EdgeNode, chan int) {
 						}
 					}
 				} else if msg.Type == Heartbeat {
-					//fmt.Println("SuperNode: got HEARBEAT message from <" + msg.Src + ">")
+					//fmt.Println("edgenode: got HEARBEAT message from <" + msg.Src + ">")
+				} else if msg.Type == Children {
+					if bitverseObserver != nil {
+						bitverseObserver.OnChildrenReply(msg.Src)
+					}
 				} else { // ignore
 				}
 			case remoteNode := <-edgeNode.remoteNodeChannel:
 				if remoteNode.state == Dead {
-					fmt.Println("edgenode: ERROR we just lost our connection to the super node <" + remoteNode.id.String() + ">")
-					edgeNode.superNodeLink = nil
+					fmt.Println("edgenode: ERROR we just lost our connection to the super node <" + remoteNode.Id.String() + ">")
+					edgeNode.superNode = nil
 				} else {
-					fmt.Println("edgenode: adding link to super node <" + remoteNode.id.String() + ">")
-					edgeNode.superNodeLink = remoteNode
+					fmt.Println("edgenode: adding link to super node <" + remoteNode.Id.String() + ">")
+					edgeNode.superNode = remoteNode
+					if bitverseObserver != nil {
+						bitverseObserver.OnConnected(edgeNode, edgeNode.superNode)
+					}
 				}
 			}
 		}
@@ -78,7 +87,7 @@ func (edgeNode *EdgeNode) Id() NodeId {
 	return edgeNode.id
 }
 
-func (edgeNode *EdgeNode) Join(remoteAddress string) {
+func (edgeNode *EdgeNode) Connect(remoteAddress string) {
 	edgeNode.transport.ConnectToNode(remoteAddress, edgeNode.remoteNodeChannel, edgeNode.msgChannel)
 }
 
@@ -93,8 +102,8 @@ func (edgeNode *EdgeNode) GetService(name string, observer ServiceObserver) *Ser
 }
 
 func (edgeNode *EdgeNode) SendHeartbeat() {
-	msg := ComposeHeartbeatMsg(edgeNode.id.String(), edgeNode.superNodeLink.id.String())
-	edgeNode.superNodeLink.send(msg)
+	msg := ComposeHeartbeatMsg(edgeNode.id.String(), edgeNode.superNode.Id.String())
+	edgeNode.superNode.send(msg)
 }
 
 func (edgeNode *EdgeNode) Checkout(id string, rev int) (dict *Dictionary) {
@@ -109,5 +118,5 @@ func (edgeNode *EdgeNode) Checkin(dictionary *Dictionary) (rev int) {
 
 func (edgeNode *EdgeNode) send(dst string, payload string, service string) {
 	msg := ComposeDataMsg(edgeNode.id.String(), dst, payload, service)
-	edgeNode.superNodeLink.send(msg)
+	edgeNode.superNode.send(msg)
 }

@@ -16,7 +16,7 @@ const (
 type RemoteNode struct {
 	remoteNodeChannel chan *RemoteNode
 	writer            io.Writer
-	id                NodeId
+	Id                NodeId
 	localNodeId       NodeId
 	state             RemoteNodeState
 }
@@ -25,12 +25,19 @@ func makeRemoteNode(remoteNodeChannel chan *RemoteNode, writer io.Writer, localN
 	remoteNode := new(RemoteNode)
 	remoteNode.remoteNodeChannel = remoteNodeChannel
 	remoteNode.writer = writer
-	remoteNode.id = remoteNodeId
+	remoteNode.Id = remoteNodeId
 	remoteNode.localNodeId = localNodeId
 	remoteNode.state = Alive
 
 	return remoteNode
 }
+
+func (remoteNode *RemoteNode) SendChildrenRequest() {
+	msg := ComposeChildrenRequestMsg(remoteNode.localNodeId.String(), remoteNode.Id.String())
+	remoteNode.send(msg)
+}
+
+/// PRIVATE
 
 func (remoteNode *RemoteNode) send(msg *Msg) {
 	enc := json.NewEncoder(remoteNode.writer)

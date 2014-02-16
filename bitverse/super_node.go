@@ -39,17 +39,19 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 				fmt.Println("supernode: received " + msg.String())
 				if msg.Dst == superNode.id.String() && msg.Type == Data { // ignore
 				} else if msg.Type == Heartbeat {
-					superNode.Forward(msg)
+					superNode.forwardToChildren(msg)
+				} else if msg.Type == Children {
+					superNode.sendChildrenReply(msg.Src)
 				} else { // to someone else, forward
-					superNode.Forward(msg)
+					superNode.forwardToChild(msg)
 				}
 			case remoteNode := <-superNode.remoteNodeChannel:
 				if remoteNode.state == Dead {
-					delete(superNode.children, remoteNode.id.String())
-					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.id.String(), len(superNode.children))
+					delete(superNode.children, remoteNode.Id.String())
+					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.Id.String(), len(superNode.children))
 				} else {
-					superNode.children[remoteNode.id.String()] = remoteNode
-					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.id.String(), len(superNode.children))
+					superNode.children[remoteNode.Id.String()] = remoteNode
+					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.Id.String(), len(superNode.children))
 				}
 			}
 		}
@@ -62,11 +64,32 @@ func (superNode *SuperNode) Id() NodeId {
 	return superNode.id
 }
 
-func (superNode *SuperNode) Forward(msg Msg) {
+/// PRIVATE
+
+func (superNode *SuperNode) sendChildrenReply(nodeId string) {
+	fmt.Println("supernode: sending children reply to " + nodeId)
+	//reply := ""
+
+	for childNodeId, _ := range superNode.children {
+		fmt.Println("child node id = " + childNodeId)
+	}
+}
+
+func (superNode *SuperNode) forwardToChild(msg Msg) {
 	// send the message on all our links
 	for _, remoteNode := range superNode.children {
-		if msg.Src != remoteNode.id.String() { // do not forward messages to a remote node where it came from
-			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.id.String())
+		if msg.Src != remoteNode.Id.String() && msg.Dst == remoteNode.Id.String() { // do not forward messages to a remote node where it came from
+			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id.String())
+			remoteNode.send(&msg)
+		}
+	}
+}
+
+func (superNode *SuperNode) forwardToChildren(msg Msg) {
+	// send the message on all our links
+	for _, remoteNode := range superNode.children {
+		if msg.Src != remoteNode.Id.String() { // do not forward messages to a remote node where it came from
+			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id.String())
 			remoteNode.send(&msg)
 		}
 	}
