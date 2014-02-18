@@ -9,15 +9,17 @@ import (
 var HEARTBEAT_RATE time.Duration = 10
 
 type EdgeNode struct {
-	nodeId            NodeId
-	wsServer          *WsServer
-	superNode         *RemoteNode
-	msgChannel        chan Msg
-	remoteNodeChannel chan *RemoteNode
-	seqNumberCounter  int
-	transport         Transport
-	msgServices       map[string]*MsgService
-	bitverseObserver  BitverseObserver
+	nodeId                 NodeId
+	wsServer               *WsServer
+	superNode              *RemoteNode
+	msgChannel             chan Msg
+	remoteNodeChannel      chan *RemoteNode
+	msgServiceReplyChannel chan *MsgServiceReply
+	seqNumberCounter       int
+	transport              Transport
+	msgServices            map[string]*MsgService
+	bitverseObserver       BitverseObserver
+	msgServiceReplies      map[int]*MsgServiceReply
 }
 
 func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*EdgeNode, chan int) {
@@ -26,7 +28,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.bitverseObserver = bitverseObserver
 
 	edgeNode.nodeId = generateNodeId()
-	fmt.Println("edgenode: my id is " + edgeNode.Id())
+	debug("edgenode: my id is " + edgeNode.Id())
 
 	edgeNode.transport.SetLocalNodeId(edgeNode.nodeId)
 
@@ -34,33 +36,58 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.msgChannel = make(chan Msg)
 	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 	edgeNode.msgServices = make(map[string]*MsgService)
+	edgeNode.msgServiceReplyChannel = make(chan *MsgServiceReply)
+	edgeNode.msgServiceReplies = make(map[int]*MsgServiceReply)
 
 	go func() {
 		for {
 			select {
 			case msg := <-edgeNode.msgChannel:
-				fmt.Println("edgenode: received " + msg.String())
+				debug("edgenode: received " + msg.String())
 				if msg.Dst == edgeNode.Id() && msg.Type == Data {
 					msgService := edgeNode.msgServices[msg.ServiceId]
 					if msgService == nil {
-						fmt.Println("edgenode: failed to deliver message, no such service with id <" + msg.ServiceId + "> created")
+						debug("edgenode: failed to deliver message, no such service with id <" + msg.ServiceId + "> created")
 					} else {
 						observer := msgService.observer
 						if observer == nil {
-							fmt.Println("edgenode: failed to deliver message, no observer registered")
+							debug("edgenode: failed to deliver message, no observer registered")
 						} else {
 							var err error
 							msg.Payload, err = decrypt(msgService.aesKey, msg.Payload)
 							if err != nil {
-								fmt.Println("edgenode: failed to decrypt payload, ignoring msg")
+								debug("edgenode: failed to decrypt payload, ignoring msg")
 							} else {
-								observer.OnDeliver(msgService, &msg)
+								for k, _ := range edgeNode.msgServiceReplies {
+									fmt.Printf("key: %d\n", k)
+								}
+
+								msgServiceReply := edgeNode.msgServiceReplies[msg.Id]
+								if msgServiceReply != nil {
+									info("XXXXXX found a msg service callback ")
+									msgServiceReply.msgReplyCallback(true, &msg)
+								} else {
+									observer.OnDeliver(msgService, &msg)
+								}
 
 							}
 						}
 					}
 				} else if msg.Type == Heartbeat {
-					//fmt.Println("edgenode: got HEARBEAT message from <" + msg.Src + ">")
+					debug("edgenode: got HEARBEAT message from <" + msg.Src + ">")
+					if bitverseObserver != nil {
+						bitverseObserver.OnSiblingHeartbeat(edgeNode, msg.Src) // note Src and not Payload since super node just forwards the msg
+					}
+				} else if msg.Type == ChildJoined {
+					debug("edgenode: got child joined message from <" + msg.Src + ">")
+					if bitverseObserver != nil {
+						bitverseObserver.OnSiblingJoined(edgeNode, msg.Payload)
+					}
+				} else if msg.Type == ChildLeft {
+					debug("edgenode: got child left message from <" + msg.Src + ">")
+					if bitverseObserver != nil {
+						bitverseObserver.OnSiblingLeft(edgeNode, msg.Payload)
+					}
 				} else if msg.Type == Children {
 					if bitverseObserver != nil {
 						var children []string
@@ -73,15 +100,18 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 				}
 			case remoteNode := <-edgeNode.remoteNodeChannel:
 				if remoteNode.state == Dead {
-					fmt.Println("edgenode: ERROR we just lost our connection to the super node <" + remoteNode.Id() + ">")
+					debug("edgenode: ERROR we just lost our connection to the super node <" + remoteNode.Id() + ">")
 					edgeNode.superNode = nil
 				} else {
-					fmt.Println("edgenode: adding link to super node <" + remoteNode.Id() + ">")
+					debug("edgenode: adding link to super node <" + remoteNode.Id() + ">")
 					edgeNode.superNode = remoteNode
 					if bitverseObserver != nil {
 						bitverseObserver.OnConnected(edgeNode, edgeNode.superNode)
 					}
 				}
+			case msgServiceReply := <-edgeNode.msgServiceReplyChannel:
+				fmt.Printf("edgenode: adding msg service reply callback for msg with seq nr %d", msgServiceReply.seqNr)
+				edgeNode.msgServiceReplies[msgServiceReply.seqNr] = msgServiceReply
 			}
 		}
 	}()
@@ -89,12 +119,16 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	ticker := time.NewTicker(time.Millisecond * HEARTBEAT_RATE * 1000)
 	go func() {
 		for t := range ticker.C {
-			fmt.Println("edgenode: sending heartbeat", t)
+			debug("edgenode: sending heartbeat " + t.String())
 			edgeNode.SendHeartbeat()
 		}
 	}()
 
 	return edgeNode, done
+}
+
+func (edgeNode *EdgeNode) Debug() {
+	debugFlag = true
 }
 
 func (edgeNode *EdgeNode) Id() string {
@@ -134,7 +168,7 @@ func (edgeNode *EdgeNode) Checkin(dictionary *Dictionary) (rev int) {
 
 /// PRIVATE
 
-func (edgeNode *EdgeNode) send(dst string, payload string, service string) {
-	msg := ComposeDataMsg(edgeNode.Id(), dst, service, payload)
+func (edgeNode *EdgeNode) send(msg *Msg) {
+	//msg := ComposeDataMsg(edgeNode.Id(), dst, service, payload)
 	edgeNode.superNode.send(msg)
 }

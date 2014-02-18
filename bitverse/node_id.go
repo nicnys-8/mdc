@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"github.com/nu7hatch/gouuid"
-	"log"
 )
 
 type NodeId struct {
@@ -23,7 +22,7 @@ func generateNodeId() NodeId {
 
 	u, err := uuid.NewV4()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// calculate sha-1 hash

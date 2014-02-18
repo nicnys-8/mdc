@@ -25,7 +25,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 	superNode.transport = transport
 
 	superNode.nodeId = generateNodeId()
-	fmt.Println("supernode: my id is " + superNode.Id())
+	debug("supernode: my id is " + superNode.Id())
 
 	superNode.transport.SetLocalNodeId(superNode.nodeId)
 
@@ -39,7 +39,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 		for {
 			select {
 			case msg := <-superNode.msgChannel:
-				fmt.Println("supernode: received " + msg.String())
+				debug("supernode: received " + msg.String())
 				if msg.Dst == superNode.Id() && msg.Type == Data { // ignore
 				} else if msg.Type == Heartbeat {
 					superNode.forwardToChildren(msg)
@@ -51,10 +51,20 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 			case remoteNode := <-superNode.remoteNodeChannel:
 				if remoteNode.state == Dead {
 					delete(superNode.children, remoteNode.Id())
-					fmt.Printf("supernode: removing remote node %s, number of remote nodes are now %d\n", remoteNode.Id(), len(superNode.children))
+
+					str := fmt.Sprintf("supernode: removing remote node %s, number of remote nodes are now %d", remoteNode.Id(), len(superNode.children))
+					fmt.Println(str)
+
+					msg := ComposeChildLeft(superNode.nodeId.String(), remoteNode.Id())
+					superNode.forwardToChildren(*msg)
 				} else {
 					superNode.children[remoteNode.Id()] = remoteNode
-					fmt.Printf("supernode: adding remote node %s, number of remote nodes are now %d\n", remoteNode.Id(), len(superNode.children))
+
+					str := fmt.Sprintf("supernode: adding remote node %s, number of remote nodes are now %d", remoteNode.Id(), len(superNode.children))
+					info(str)
+
+					msg := ComposeChildJoin(superNode.nodeId.String(), remoteNode.Id())
+					superNode.forwardToChildren(*msg)
 				}
 			}
 		}
@@ -67,10 +77,14 @@ func (superNode *SuperNode) Id() string {
 	return superNode.nodeId.String()
 }
 
+func (superNode *SuperNode) Debug() {
+	debugFlag = true
+}
+
 /// PRIVATE
 
 func (superNode *SuperNode) sendChildrenReply(nodeId string) {
-	fmt.Println("supernode: sending children reply to " + nodeId)
+	debug("supernode: sending children reply to " + nodeId)
 	childrenIds := make([]string, len(superNode.children))
 	i := 0
 	for childNodeId, _ := range superNode.children {
@@ -92,7 +106,8 @@ func (superNode *SuperNode) forwardToChild(msg Msg) {
 	// send the message on all our links
 	for _, remoteNode := range superNode.children {
 		if msg.Src != remoteNode.Id() && msg.Dst == remoteNode.Id() { // do not forward messages to a remote node where it came from
-			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
+			debug("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
+			msg.Dst = remoteNode.Id()
 			remoteNode.send(&msg)
 		}
 	}
@@ -102,7 +117,8 @@ func (superNode *SuperNode) forwardToChildren(msg Msg) {
 	// send the message on all our links
 	for _, remoteNode := range superNode.children {
 		if msg.Src != remoteNode.Id() { // do not forward messages to a remote node where it came from
-			fmt.Println("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
+			debug("supernode: forwarding " + msg.String() + " to " + remoteNode.Id())
+
 			remoteNode.send(&msg)
 		}
 	}

@@ -10,6 +10,7 @@ import (
 )
 
 var superFlag = flag.Bool("super", false, "run the node as a super node")
+var debugFlag = flag.Bool("debug", false, "run the node in debug mode")
 var localFlag = flag.String("local", "", "ip address and port which this super node should bound to, e.g. --local localhost:1111")
 var joinFlag = flag.String("join", "", "ip address and port to a node to join, e.g. --join localhost:2222")
 var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http test server at port 8080 for debuging")
@@ -19,12 +20,12 @@ var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http tes
 type MyBitverseObserver struct {
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingJoin(edgeNode *bitverse.EdgeNode, nodeId string) {
+func (myBitverseObserver *MyBitverseObserver) OnSiblingJoined(edgeNode *bitverse.EdgeNode, nodeId string) {
 	fmt.Println("sibling " + nodeId + " joined")
 }
 
-func (myBitverseObserver *MyBitverseObserver) OnSiblingExit(edgeNode *bitverse.EdgeNode, nodeId string) {
-	fmt.Println("sibling " + nodeId + " exit")
+func (myBitverseObserver *MyBitverseObserver) OnSiblingLeft(edgeNode *bitverse.EdgeNode, nodeId string) {
+	fmt.Println("sibling " + nodeId + " left")
 }
 
 func (myBitverseObserver *MyBitverseObserver) OnSiblingHeartbeat(edgeNode *bitverse.EdgeNode, nodeId string) {
@@ -50,11 +51,16 @@ func main() {
 	transport := bitverse.MakeWSTransport()
 
 	if *superFlag {
+		var superNode *bitverse.SuperNode
 		temp := strings.Split(*localFlag, ":")
 		localAddr := temp[0]
 		localPort := temp[1]
 
-		_, done = bitverse.MakeSuperNode(transport, localAddr, localPort)
+		superNode, done = bitverse.MakeSuperNode(transport, localAddr, localPort)
+
+		if *debugFlag {
+			superNode.Debug()
+		}
 
 		if *testHttpServerFlag {
 			fmt.Println("Starting a HTTP test server at port 8080")

@@ -1,1 +1,1 @@
-../bin/macosx/bitverse --super --local localhost:1111
+../bin/macosx/bitverse --super --debug --local localhost:1111

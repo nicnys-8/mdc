@@ -3,7 +3,6 @@ package bitverse
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
-	"fmt"
 	"os"
 )
 
@@ -30,7 +29,7 @@ func (wsClient *WsClient) connect(ipAddress string) {
 	var err error
 	wsClient.ws, err = websocket.Dial(url, "", origin)
 	if err != nil {
-		fmt.Println("failed to connect to supernode at " + ipAddress + ", connection refused")
+		info("failed to connect to supernode at " + ipAddress + ", connection refused")
 		os.Exit(0)
 	}
 
@@ -53,7 +52,7 @@ func (wsClient *WsClient) send(msg *Msg) {
 	enc := json.NewEncoder(wsClient.ws)
 	err := enc.Encode(msg)
 	if err != nil {
-		fmt.Println("wsclient: failed to send message")
+		info("wsclient: failed to send message")
 	}
 }
 
@@ -76,7 +75,7 @@ func (wsClient *WsClient) receive() *Msg { // TODO: return error instead of nil
 
 	err = dec.Decode(&msg)
 	if err != nil {
-		fmt.Println("wsclient: failed to decode message")
+		info("wsclient: failed to decode message")
 		return nil
 	}
 

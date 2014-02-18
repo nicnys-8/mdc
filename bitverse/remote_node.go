@@ -2,7 +2,6 @@ package bitverse
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 )
 
@@ -53,7 +52,7 @@ func (remoteNode *RemoteNode) send(msg *Msg) {
 
 	if err != nil {
 		remoteNode.state = Dead
-		fmt.Println("link: detecting dead link")
+		debug("link: detecting dead link")
 		remoteNode.remoteNodeChannel <- remoteNode // notify the node so it can remove it
 	}
 }

@@ -5,10 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	//"fmt"
 	"errors"
 	"io"
-	"log"
 )
 
 func encodePayload(payload string) (encodedPayload string) {
@@ -20,7 +18,7 @@ func decodePayload(encodedPayload string) (payload string) {
 	payloadBuffer, err := base64.StdEncoding.DecodeString(encodedPayload)
 
 	if err != nil {
-		log.Fatal("msg: failed to decode payload", err)
+		fatal("msg: failed to decode payload")
 	}
 
 	return string(payloadBuffer[0:len(payloadBuffer)])

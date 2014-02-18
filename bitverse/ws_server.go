@@ -3,7 +3,6 @@ package bitverse
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -16,19 +15,24 @@ type WsServer struct {
 func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 	var err error
 	var msg Msg
+	var remoteNode *RemoteNode = nil
 
 	for {
 		dec := json.NewDecoder(ws)
 		err = dec.Decode(&msg)
 
 		if err != nil {
-			fmt.Println("wsserver: connection closed")
+			debug("wsserver: connection closed")
+			if remoteNode != nil {
+				remoteNode.state = Dead
+				wsServer.remoteNodeChannel <- remoteNode
+			}
 			break
 		}
 
 		if msg.Type == Handshake {
 			//remoteNodeId := makeNodeIdFromString(msg.Src)
-			remoteNode := makeRemoteNode(wsServer.remoteNodeChannel, ws, wsServer.localNodeId.String(), msg.Src)
+			remoteNode = makeRemoteNode(wsServer.remoteNodeChannel, ws, wsServer.localNodeId.String(), msg.Src)
 			wsServer.remoteNodeChannel <- remoteNode
 
 			// send our node id to the remote node so that it can also create a link
@@ -51,7 +55,7 @@ func makeWsServer(localNodeId NodeId, msgChannel chan Msg, remoteNodeChannel cha
 }
 
 func (wsServer *WsServer) start(port string) {
-	fmt.Printf("wsserver: starting a new server at port " + port + "\n")
+	debug("wsserver: starting a new server at port " + port)
 
 	http.Handle("/node", websocket.Handler(wsServer.WsHandler))
 
