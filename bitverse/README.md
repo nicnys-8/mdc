@@ -92,7 +92,7 @@ If we except a reply back from the other node, we can call the *SendAndGetReply*
 msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(timedOut bool, reply *bitverse.Msg) {
 		if timedOut {
 			// will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
-			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876)
+			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876")
 		} else {
 			fmt.Println("that was a surprise " + reply.Payload)
 		}
