@@ -20,7 +20,7 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 		msgService.Send(msg.Src, "hi dude!")
 
 		fmt.Println("sending: how are you doing?")
-		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(timedOut bool, reply *bitverse.Msg) {
+		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(success bool, reply *bitverse.Msg) {
 			fmt.Println("got a reply (how are you doing?): " + reply.Payload)
 		})
 	} else if msg.Payload == "how are you doing?" {
@@ -43,45 +43,46 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 type BitverseObserver struct {
 }
 
-func (bitverseObserver *BitverseObserver) OnSiblingJoined(edgeNode *bitverse.EdgeNode, id string) {
+func (bitverseObserver *BitverseObserver) OnSiblingJoined(node *bitverse.EdgeNode, id string) {
 	fmt.Println("-> sibling " + id + " joined")
 
-	msgService := edgeNode.GetMsgService(serviceId)
+	msgService := node.GetMsgService(serviceId)
 	msgService.Send(id, "hello")
 	fmt.Println("sending: hello")
 
 	fmt.Println("sending: who are you?")
-	msgService.SendAndGetReply(id, "who are you?", 10, func(timedOut bool, reply *bitverse.Msg) {
+	msgService.SendAndGetReply(id, "who are you?", 10, func(success bool, reply *bitverse.Msg) {
 		fmt.Println("got a reply (who are you?): " + reply.Payload)
 	})
 }
 
-func (bitverseObserver *BitverseObserver) OnSiblingLeft(edgeNode *bitverse.EdgeNode, id string) {
+func (bitverseObserver *BitverseObserver) OnSiblingLeft(node *bitverse.EdgeNode, id string) {
 	fmt.Println("-> sibling " + id + " left")
 }
 
-func (bitverseObserver *BitverseObserver) OnSiblingHeartbeat(edgeNode *bitverse.EdgeNode, id string) {
-	//fmt.Println("-> sibling " + id + " heartbeat")
+func (bitverseObserver *BitverseObserver) OnSiblingHeartbeat(node *bitverse.EdgeNode, id string) {
+	fmt.Println("-> sibling " + id + " heartbeat")
 }
 
-func (bitverseObserver *BitverseObserver) OnChildrenReply(edgeNode *bitverse.EdgeNode, id string, children []string) {
+func (bitverseObserver *BitverseObserver) OnChildrenReply(node *bitverse.EdgeNode, id string, children []string) {
 	fmt.Println("-> received children list from " + id)
 	for _, childNodeId := range children {
 		fmt.Println("-> learned about a sibling: " + childNodeId)
 	}
 }
 
-func (bitverseObserver *BitverseObserver) OnConnected(edgeNode *bitverse.EdgeNode, remoteNode *bitverse.RemoteNode) {
+func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, remoteNode *bitverse.RemoteNode) {
 	fmt.Println("-> now connected to super node " + remoteNode.Id())
 
 	remoteNode.SendChildrenRequest()
 
-	msgService := edgeNode.GetMsgService(serviceId)
-	msgService.SendAndGetReply("does not exists", "", 10, func(timedOut bool, reply *bitverse.Msg) {
-		if timedOut {
-			fmt.Println("failed to send message to node with id <does not exists>")
-		} else {
+	msgService := node.GetMsgService(serviceId)
+	msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply *bitverse.Msg) {
+		if success {
 			fmt.Println("that was a surprise " + reply.Payload)
+		} else {
+			// we will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
+			fmt.Println("failed to send message to node with id <does not exists>")
 		}
 	})
 }
@@ -91,14 +92,14 @@ func (bitverseObserver *BitverseObserver) OnConnected(edgeNode *bitverse.EdgeNod
 func main() {
 	var done chan int
 
-	edgeNode, done := bitverse.MakeEdgeNode(bitverse.MakeWSTransport(), new(BitverseObserver))
-	//edgeNode.Debug()
-	fmt.Println("-> my id is " + edgeNode.Id())
+	node, done := bitverse.MakeEdgeNode(bitverse.MakeWSTransport(), new(BitverseObserver))
+	//node.Debug()
+	fmt.Println("-> my id is " + node.Id())
 
 	msgServiceObserver := new(MsgServiceObserver)
-	edgeNode.CreateMsgService(secret, serviceId, msgServiceObserver)
+	node.CreateMsgService(secret, serviceId, msgServiceObserver)
 
-	go edgeNode.Connect("localhost:1111")
+	go node.Connect("localhost:1111")
 
 	<-done
 }
