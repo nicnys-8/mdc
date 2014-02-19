@@ -6,13 +6,13 @@ import (
 	"net/http"
 )
 
-type WsServer struct {
+type wsServerType struct {
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
 	localNodeId       NodeId
 }
 
-func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
+func (wsServer *wsServerType) WsHandler(ws *websocket.Conn) {
 	var err error
 	var msg Msg
 	var remoteNode *RemoteNode = nil
@@ -31,12 +31,11 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 		}
 
 		if msg.Type == Handshake {
-			//remoteNodeId := makeNodeIdFromString(msg.Src)
 			remoteNode = makeRemoteNode(wsServer.remoteNodeChannel, ws, wsServer.localNodeId.String(), msg.Src)
 			wsServer.remoteNodeChannel <- remoteNode
 
 			// send our node id to the remote node so that it can also create a link
-			reply := ComposeHandshakeMsg(wsServer.localNodeId.String())
+			reply := composeHandshakeMsg(wsServer.localNodeId.String())
 			enc := json.NewEncoder(ws)
 			enc.Encode(reply)
 		} else {
@@ -45,8 +44,8 @@ func (wsServer *WsServer) WsHandler(ws *websocket.Conn) {
 	}
 }
 
-func makeWsServer(localNodeId NodeId, msgChannel chan Msg, remoteNodeChannel chan *RemoteNode) *WsServer {
-	wsServer := new(WsServer)
+func makeWsServer(localNodeId NodeId, msgChannel chan Msg, remoteNodeChannel chan *RemoteNode) *wsServerType {
+	wsServer := new(wsServerType)
 	wsServer.msgChannel = msgChannel
 	wsServer.remoteNodeChannel = remoteNodeChannel
 	wsServer.localNodeId = localNodeId
@@ -54,7 +53,7 @@ func makeWsServer(localNodeId NodeId, msgChannel chan Msg, remoteNodeChannel cha
 	return wsServer
 }
 
-func (wsServer *WsServer) start(port string) {
+func (wsServer *wsServerType) start(port string) {
 	debug("wsserver: starting a new server at port " + port)
 
 	http.Handle("/node", websocket.Handler(wsServer.WsHandler))

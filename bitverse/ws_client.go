@@ -6,15 +6,15 @@ import (
 	"os"
 )
 
-type WsClient struct {
+type wsClientType struct {
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
 	localNodeId       NodeId
 	ws                *websocket.Conn
 }
 
-func makeWsClient(msgChannel chan Msg, remoteNodeChannel chan *RemoteNode, localNodeId NodeId) *WsClient {
-	wsClient := new(WsClient)
+func makeWsClient(msgChannel chan Msg, remoteNodeChannel chan *RemoteNode, localNodeId NodeId) *wsClientType {
+	wsClient := new(wsClientType)
 	wsClient.msgChannel = msgChannel
 	wsClient.remoteNodeChannel = remoteNodeChannel
 	wsClient.localNodeId = localNodeId
@@ -22,7 +22,7 @@ func makeWsClient(msgChannel chan Msg, remoteNodeChannel chan *RemoteNode, local
 	return wsClient
 }
 
-func (wsClient *WsClient) connect(ipAddress string) {
+func (wsClient *wsClientType) connect(ipAddress string) {
 	origin := "http://localhost/"
 	url := "ws://" + ipAddress + "/node"
 
@@ -48,7 +48,7 @@ func (wsClient *WsClient) connect(ipAddress string) {
 	}
 }
 
-func (wsClient *WsClient) send(msg *Msg) {
+func (wsClient *wsClientType) send(msg *Msg) {
 	enc := json.NewEncoder(wsClient.ws)
 	err := enc.Encode(msg)
 	if err != nil {
@@ -56,8 +56,8 @@ func (wsClient *WsClient) send(msg *Msg) {
 	}
 }
 
-func (wsClient *WsClient) handshake() *RemoteNode {
-	msg := ComposeHandshakeMsg(wsClient.localNodeId.String())
+func (wsClient *wsClientType) handshake() *RemoteNode {
+	msg := composeHandshakeMsg(wsClient.localNodeId.String())
 
 	wsClient.send(msg)
 	reply := wsClient.receive()
@@ -68,7 +68,7 @@ func (wsClient *WsClient) handshake() *RemoteNode {
 	return remoteNode
 }
 
-func (wsClient *WsClient) receive() *Msg { // TODO: return error instead of nil
+func (wsClient *wsClientType) receive() *Msg { // TODO: return error instead of nil
 	dec := json.NewDecoder(wsClient.ws)
 	var err error
 	var msg Msg

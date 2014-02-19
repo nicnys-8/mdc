@@ -2,8 +2,8 @@ package bitverse
 
 type WSTransport struct {
 	localPort   string
-	wsServer    *WsServer
-	wsClient    *WsClient
+	wsServer    *wsServerType
+	wsClient    *wsClientType
 	localNodeId NodeId
 }
 

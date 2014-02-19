@@ -6,8 +6,8 @@ import (
 )
 
 type SuperNode struct {
-	nodeId            NodeId
-	wsServer          *WsServer
+	nodeId NodeId
+	//wsServer          *WsServer
 	children          map[string]*RemoteNode
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
@@ -55,7 +55,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 					str := fmt.Sprintf("supernode: removing remote node %s, number of remote nodes are now %d", remoteNode.Id(), len(superNode.children))
 					fmt.Println(str)
 
-					msg := ComposeChildLeft(superNode.nodeId.String(), remoteNode.Id())
+					msg := composeChildLeft(superNode.nodeId.String(), remoteNode.Id())
 					superNode.forwardToChildren(*msg)
 				} else {
 					superNode.children[remoteNode.Id()] = remoteNode
@@ -63,7 +63,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 					str := fmt.Sprintf("supernode: adding remote node %s, number of remote nodes are now %d", remoteNode.Id(), len(superNode.children))
 					info(str)
 
-					msg := ComposeChildJoin(superNode.nodeId.String(), remoteNode.Id())
+					msg := composeChildJoin(superNode.nodeId.String(), remoteNode.Id())
 					superNode.forwardToChildren(*msg)
 				}
 			}
@@ -93,7 +93,7 @@ func (superNode *SuperNode) sendChildrenReply(nodeId string) {
 	}
 
 	json, _ := json.Marshal(childrenIds)
-	reply := ComposeChildrenReplyMsg(superNode.Id(), nodeId, string(json))
+	reply := composeChildrenReplyMsg(superNode.Id(), nodeId, string(json))
 
 	remoteNode := superNode.children[nodeId]
 

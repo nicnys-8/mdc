@@ -32,7 +32,7 @@ func makeRemoteNode(remoteNodeChannel chan *RemoteNode, writer io.Writer, remote
 }
 
 func (remoteNode *RemoteNode) SendChildrenRequest() {
-	msg := ComposeChildrenRequestMsg(remoteNode.remoteId, remoteNode.id)
+	msg := composeChildrenRequestMsg(remoteNode.remoteId, remoteNode.id)
 	remoteNode.send(msg)
 }
 

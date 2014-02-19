@@ -9,15 +9,15 @@ var HEARTBEAT_RATE time.Duration = 10
 var MSG_SERVICE_GC_RATE time.Duration = 1
 
 type EdgeNode struct {
-	nodeId            NodeId
-	wsServer          *WsServer
+	nodeId NodeId
+	//wsServer          *WsServer
 	superNode         *RemoteNode
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
 	transport         Transport
 	msgServices       map[string]*MsgService
 	bitverseObserver  BitverseObserver
-	msgServiceReplies map[string]*MsgServiceReply
+	msgServiceReplies map[string]*msgServiceReplyType
 }
 
 func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*EdgeNode, chan int) {
@@ -34,7 +34,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.msgChannel = make(chan Msg)
 	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 	edgeNode.msgServices = make(map[string]*MsgService)
-	edgeNode.msgServiceReplies = make(map[string]*MsgServiceReply)
+	edgeNode.msgServiceReplies = make(map[string]*msgServiceReplyType)
 
 	go func() {
 		for {
@@ -168,16 +168,8 @@ func (edgeNode *EdgeNode) GetMsgService(name string) *MsgService {
 }
 
 func (edgeNode *EdgeNode) SendHeartbeat() {
-	msg := ComposeHeartbeatMsg(edgeNode.Id(), edgeNode.superNode.Id())
+	msg := composeHeartbeatMsg(edgeNode.Id(), edgeNode.superNode.Id())
 	edgeNode.superNode.send(msg)
-}
-
-func (edgeNode *EdgeNode) Checkout(id string, rev int) (dict *Dictionary) {
-	return nil
-}
-
-func (edgeNode *EdgeNode) Checkin(dictionary *Dictionary) (rev int) {
-	return 0
 }
 
 /// PRIVATE

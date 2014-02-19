@@ -18,8 +18,6 @@ const (
 var mutex sync.Mutex
 var seqNrCounter int = 0
 
-type MsgId string
-
 type Msg struct {
 	Type      int
 	Payload   string
@@ -27,84 +25,6 @@ type Msg struct {
 	Dst       string
 	ServiceId string
 	Id        string
-}
-
-func ComposeDataMsg(src string, dst string, serviceId string, payload string) *Msg {
-	msg := new(Msg)
-	msg.Type = Data
-	msg.Payload = payload
-	msg.Src = src
-	msg.Dst = dst
-	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
-	msg.ServiceId = serviceId
-
-	return msg
-}
-
-func ComposeHeartbeatMsg(src string, dst string) *Msg {
-	msg := new(Msg)
-	msg.Type = Heartbeat
-	msg.Payload = ""
-	msg.Src = src
-	msg.Dst = dst
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
-}
-
-func ComposeChildrenRequestMsg(src string, dst string) *Msg {
-	msg := new(Msg)
-	msg.Type = Children
-	msg.Payload = ""
-	msg.Src = src
-	msg.Dst = dst
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
-}
-
-func ComposeChildrenReplyMsg(src string, dst string, json string) *Msg {
-	msg := new(Msg)
-	msg.Type = Children
-	msg.Payload = json
-	msg.Src = src
-	msg.Dst = dst
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
-}
-
-func ComposeChildJoin(src string, childId string) *Msg {
-	msg := new(Msg)
-	msg.Type = ChildJoined
-	msg.Payload = childId
-	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
-}
-
-func ComposeChildLeft(src string, childId string) *Msg {
-	msg := new(Msg)
-	msg.Type = ChildLeft
-	msg.Payload = childId
-	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
-}
-
-func ComposeHandshakeMsg(src string) *Msg {
-	msg := new(Msg)
-	msg.Type = Handshake
-	msg.Payload = ""
-	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
-	msg.ServiceId = ""
-	return msg
 }
 
 func (msg *Msg) String() string {
@@ -126,6 +46,84 @@ func (msg *Msg) String() string {
 }
 
 /// PRIVATE
+
+func composeDataMsg(src string, dst string, serviceId string, payload string) *Msg {
+	msg := new(Msg)
+	msg.Type = Data
+	msg.Payload = payload
+	msg.Src = src
+	msg.Dst = dst
+	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
+	msg.ServiceId = serviceId
+
+	return msg
+}
+
+func composeHeartbeatMsg(src string, dst string) *Msg {
+	msg := new(Msg)
+	msg.Type = Heartbeat
+	msg.Payload = ""
+	msg.Src = src
+	msg.Dst = dst
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
+
+func composeChildrenRequestMsg(src string, dst string) *Msg {
+	msg := new(Msg)
+	msg.Type = Children
+	msg.Payload = ""
+	msg.Src = src
+	msg.Dst = dst
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
+
+func composeChildrenReplyMsg(src string, dst string, json string) *Msg {
+	msg := new(Msg)
+	msg.Type = Children
+	msg.Payload = json
+	msg.Src = src
+	msg.Dst = dst
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
+
+func composeChildJoin(src string, childId string) *Msg {
+	msg := new(Msg)
+	msg.Type = ChildJoined
+	msg.Payload = childId
+	msg.Src = src
+	msg.Dst = ""
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
+
+func composeChildLeft(src string, childId string) *Msg {
+	msg := new(Msg)
+	msg.Type = ChildLeft
+	msg.Payload = childId
+	msg.Src = src
+	msg.Dst = ""
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
+
+func composeHandshakeMsg(src string) *Msg {
+	msg := new(Msg)
+	msg.Type = Handshake
+	msg.Payload = ""
+	msg.Src = src
+	msg.Dst = ""
+	msg.Id = ""
+	msg.ServiceId = ""
+	return msg
+}
 
 func getSeqNr() int {
 	mutex.Lock()

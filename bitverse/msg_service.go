@@ -12,10 +12,8 @@ type MsgService struct {
 	aesKey   string
 }
 
-type MsgReplyCallback func(timedOut bool, msg *Msg)
-
-type MsgServiceReply struct {
-	msgReplyCallback MsgReplyCallback
+type msgServiceReplyType struct {
+	msgReplyCallback func(timedOut bool, msg *Msg)
 	timeout          int32
 	timestamp        int32
 }
@@ -31,15 +29,15 @@ func composeMsgService(secret string, id string, observe MsgServiceObserver, edg
 
 func (msgService *MsgService) Send(dst string, payload string) {
 	encryptedPayload := encrypt(msgService.aesKey, payload)
-	msg := ComposeDataMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
+	msg := composeDataMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeout int32, msgReplyCallback MsgReplyCallback) {
+func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeout int32, msgReplyCallback func(timedOut bool, msg *Msg)) {
 	encryptedPayload := encrypt(msgService.aesKey, payload)
-	msg := ComposeDataMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
+	msg := composeDataMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
 
-	msgServiceReply := new(MsgServiceReply)
+	msgServiceReply := new(msgServiceReplyType)
 	msgServiceReply.timeout = timeout
 	msgServiceReply.msgReplyCallback = msgReplyCallback
 	msgServiceReply.timestamp = int32(time.Now().Unix())
@@ -50,7 +48,7 @@ func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeou
 
 func (msgService *MsgService) Reply(msg *Msg, payload string) {
 	encryptedPayload := encrypt(msgService.aesKey, payload)
-	replyMsg := ComposeDataMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedPayload)
+	replyMsg := composeDataMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedPayload)
 	replyMsg.Id = msg.Id // use the same id as the sender
 	msgService.edgeNode.send(replyMsg)
 }
