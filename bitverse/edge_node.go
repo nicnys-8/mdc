@@ -9,15 +9,15 @@ var HEARTBEAT_RATE time.Duration = 10
 var MSG_SERVICE_GC_RATE time.Duration = 1
 
 type EdgeNode struct {
-	nodeId NodeId
-	//wsServer          *WsServer
+	nodeId            NodeId
 	superNode         *RemoteNode
 	msgChannel        chan Msg
 	remoteNodeChannel chan *RemoteNode
 	transport         Transport
 	msgServices       map[string]*MsgService
+	storageServices   map[string]*StorageService
 	bitverseObserver  BitverseObserver
-	msgServiceReplies map[string]*msgServiceReplyType
+	replyTable        map[string]*msgReplyType
 }
 
 func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*EdgeNode, chan int) {
@@ -34,7 +34,8 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.msgChannel = make(chan Msg)
 	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 	edgeNode.msgServices = make(map[string]*MsgService)
-	edgeNode.msgServiceReplies = make(map[string]*msgServiceReplyType)
+	edgeNode.storageServices = make(map[string]*StorageService)
+	edgeNode.replyTable = make(map[string]*msgReplyType)
 
 	go func() {
 		for {
@@ -42,9 +43,9 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 			case msg := <-edgeNode.msgChannel:
 				debug("edgenode: received " + msg.String())
 				if msg.Dst == edgeNode.Id() && msg.Type == Data {
-					msgService := edgeNode.msgServices[msg.ServiceId]
+					msgService := edgeNode.msgServices[msg.MsgChannelId]
 					if msgService == nil {
-						debug("edgenode: failed to deliver message, no such service with id <" + msg.ServiceId + "> created")
+						debug("edgenode: failed to deliver message, no such service with id <" + msg.MsgChannelId + "> created")
 					} else {
 						observer := msgService.observer
 						if observer == nil {
@@ -55,10 +56,10 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							if err != nil {
 								info("edgenode: failed to decrypt payload, ignoring incoming msg")
 							} else {
-								msgServiceReply := edgeNode.msgServiceReplies[msg.Id]
-								if msgServiceReply != nil {
-									msgServiceReply.msgReplyCallback(true, &msg)
-									delete(edgeNode.msgServiceReplies, msg.Id)
+								reply := edgeNode.replyTable[msg.Id]
+								if reply != nil {
+									reply.callback(true, &msg)
+									delete(edgeNode.replyTable, msg.Id)
 								} else {
 									observer.OnDeliver(msgService, &msg)
 								}
@@ -123,15 +124,15 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	msgServiceGCTicker := time.NewTicker(time.Millisecond * MSG_SERVICE_GC_RATE * 1000)
 	go func() {
 		for t := range msgServiceGCTicker.C {
-			for msgId, msgServiceReply := range edgeNode.msgServiceReplies {
+			for msgId, reply := range edgeNode.replyTable {
 				debug("edgenode: running msg service callback listener garbage collector" + t.String())
 				currentTime := int32(time.Now().Unix())
-				elapsedTime := currentTime - msgServiceReply.timestamp
-				timeLeft := msgServiceReply.timeout - elapsedTime
+				elapsedTime := currentTime - reply.timestamp
+				timeLeft := reply.timeout - elapsedTime
 
 				if timeLeft <= 0 {
-					msgServiceReply.msgReplyCallback(true, nil) // notify the callback clousure about this timeout
-					delete(edgeNode.msgServiceReplies, msgId)
+					reply.callback(false, nil) // notify the callback clousure about this timeout
+					delete(edgeNode.replyTable, msgId)
 				}
 
 			}
@@ -153,18 +154,28 @@ func (edgeNode *EdgeNode) Connect(remoteAddress string) {
 	edgeNode.transport.ConnectToNode(remoteAddress, edgeNode.remoteNodeChannel, edgeNode.msgChannel)
 }
 
-func (edgeNode *EdgeNode) CreateMsgService(secret string, name string, observer MsgServiceObserver) *MsgService {
-	if edgeNode.msgServices[name] == nil {
-		msgService := composeMsgService(secret, name, observer, edgeNode)
-		edgeNode.msgServices[name] = msgService
+func (edgeNode *EdgeNode) CreateMsgService(secret string, serviceId string, observer MsgServiceObserver) *MsgService {
+	if edgeNode.msgServices[serviceId] == nil {
+		msgService := composeMsgService(secret, serviceId, observer, edgeNode)
+		edgeNode.msgServices[serviceId] = msgService
 		return msgService
 	} else {
-		return edgeNode.msgServices[name]
+		return edgeNode.msgServices[serviceId]
 	}
 }
 
-func (edgeNode *EdgeNode) GetMsgService(name string) *MsgService {
-	return edgeNode.msgServices[name]
+func (edgeNode *EdgeNode) CreateStorageService(secret string, repoId string) *StorageService {
+	if edgeNode.storageServices[repoId] == nil {
+		storageService := composeStorageService(secret, repoId, edgeNode)
+		edgeNode.storageServices[repoId] = storageService
+		return storageService
+	} else {
+		return edgeNode.storageServices[repoId]
+	}
+}
+
+func (edgeNode *EdgeNode) GetMsgService(serviceId string) *MsgService {
+	return edgeNode.msgServices[serviceId]
 }
 
 func (edgeNode *EdgeNode) SendHeartbeat() {
