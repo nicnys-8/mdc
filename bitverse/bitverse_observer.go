@@ -1,9 +1,9 @@
 package bitverse
 
 type BitverseObserver interface {
-	OnSiblingJoined(edgeNode *EdgeNode, id string)
-	OnSiblingLeft(edgeNode *EdgeNode, id string)
-	OnSiblingHeartbeat(edgeNode *EdgeNode, id string)
-	OnChildrenReply(edgeNode *EdgeNode, id string, children []string)
-	OnConnected(edgeNode *EdgeNode, remoteNode *RemoteNode)
+	OnSiblingJoined(node *EdgeNode, id string)
+	OnSiblingLeft(node *EdgeNode, id string)
+	OnSiblingHeartbeat(node *EdgeNode, id string)
+	OnChildrenReply(node *EdgeNode, id string, children []string)
+	OnConnected(node *EdgeNode, remoteNode *RemoteNode)
 }
