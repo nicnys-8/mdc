@@ -2,24 +2,22 @@ package bitverse
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
 var HEARTBEAT_RATE time.Duration = 10
+var MSG_SERVICE_GC_RATE time.Duration = 1
 
 type EdgeNode struct {
-	nodeId                 NodeId
-	wsServer               *WsServer
-	superNode              *RemoteNode
-	msgChannel             chan Msg
-	remoteNodeChannel      chan *RemoteNode
-	msgServiceReplyChannel chan *MsgServiceReply
-	seqNumberCounter       int
-	transport              Transport
-	msgServices            map[string]*MsgService
-	bitverseObserver       BitverseObserver
-	msgServiceReplies      map[int]*MsgServiceReply
+	nodeId            NodeId
+	wsServer          *WsServer
+	superNode         *RemoteNode
+	msgChannel        chan Msg
+	remoteNodeChannel chan *RemoteNode
+	transport         Transport
+	msgServices       map[string]*MsgService
+	bitverseObserver  BitverseObserver
+	msgServiceReplies map[string]*MsgServiceReply
 }
 
 func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*EdgeNode, chan int) {
@@ -36,8 +34,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.msgChannel = make(chan Msg)
 	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 	edgeNode.msgServices = make(map[string]*MsgService)
-	edgeNode.msgServiceReplyChannel = make(chan *MsgServiceReply)
-	edgeNode.msgServiceReplies = make(map[int]*MsgServiceReply)
+	edgeNode.msgServiceReplies = make(map[string]*MsgServiceReply)
 
 	go func() {
 		for {
@@ -56,16 +53,12 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							var err error
 							msg.Payload, err = decrypt(msgService.aesKey, msg.Payload)
 							if err != nil {
-								debug("edgenode: failed to decrypt payload, ignoring msg")
+								info("edgenode: failed to decrypt payload, ignoring incoming msg")
 							} else {
-								for k, _ := range edgeNode.msgServiceReplies {
-									fmt.Printf("key: %d\n", k)
-								}
-
 								msgServiceReply := edgeNode.msgServiceReplies[msg.Id]
 								if msgServiceReply != nil {
-									info("XXXXXX found a msg service callback ")
 									msgServiceReply.msgReplyCallback(true, &msg)
+									delete(edgeNode.msgServiceReplies, msg.Id)
 								} else {
 									observer.OnDeliver(msgService, &msg)
 								}
@@ -74,19 +67,25 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 						}
 					}
 				} else if msg.Type == Heartbeat {
-					debug("edgenode: got HEARBEAT message from <" + msg.Src + ">")
+					debug("edgenode: got heartbeat message from <" + msg.Src + ">")
 					if bitverseObserver != nil {
-						bitverseObserver.OnSiblingHeartbeat(edgeNode, msg.Src) // note Src and not Payload since super node just forwards the msg
+						if msg.Src != edgeNode.nodeId.String() {
+							bitverseObserver.OnSiblingHeartbeat(edgeNode, msg.Src) // note Src and not Payload since super node just forwards the msg
+						}
 					}
 				} else if msg.Type == ChildJoined {
 					debug("edgenode: got child joined message from <" + msg.Src + ">")
 					if bitverseObserver != nil {
-						bitverseObserver.OnSiblingJoined(edgeNode, msg.Payload)
+						if msg.Payload != edgeNode.nodeId.String() {
+							bitverseObserver.OnSiblingJoined(edgeNode, msg.Payload)
+						}
 					}
 				} else if msg.Type == ChildLeft {
 					debug("edgenode: got child left message from <" + msg.Src + ">")
 					if bitverseObserver != nil {
-						bitverseObserver.OnSiblingLeft(edgeNode, msg.Payload)
+						if msg.Payload != edgeNode.nodeId.String() {
+							bitverseObserver.OnSiblingLeft(edgeNode, msg.Payload)
+						}
 					}
 				} else if msg.Type == Children {
 					if bitverseObserver != nil {
@@ -109,18 +108,33 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 						bitverseObserver.OnConnected(edgeNode, edgeNode.superNode)
 					}
 				}
-			case msgServiceReply := <-edgeNode.msgServiceReplyChannel:
-				fmt.Printf("edgenode: adding msg service reply callback for msg with seq nr %d", msgServiceReply.seqNr)
-				edgeNode.msgServiceReplies[msgServiceReply.seqNr] = msgServiceReply
 			}
 		}
 	}()
 
-	ticker := time.NewTicker(time.Millisecond * HEARTBEAT_RATE * 1000)
+	hearbeatTicker := time.NewTicker(time.Millisecond * HEARTBEAT_RATE * 1000)
 	go func() {
-		for t := range ticker.C {
+		for t := range hearbeatTicker.C {
 			debug("edgenode: sending heartbeat " + t.String())
 			edgeNode.SendHeartbeat()
+		}
+	}()
+
+	msgServiceGCTicker := time.NewTicker(time.Millisecond * MSG_SERVICE_GC_RATE * 1000)
+	go func() {
+		for t := range msgServiceGCTicker.C {
+			for msgId, msgServiceReply := range edgeNode.msgServiceReplies {
+				debug("edgenode: running msg service callback listener garbage collector" + t.String())
+				currentTime := int32(time.Now().Unix())
+				elapsedTime := currentTime - msgServiceReply.timestamp
+				timeLeft := msgServiceReply.timeout - elapsedTime
+
+				if timeLeft <= 0 {
+					msgServiceReply.msgReplyCallback(true, nil) // notify the callback clousure about this timeout
+					delete(edgeNode.msgServiceReplies, msgId)
+				}
+
+			}
 		}
 	}()
 

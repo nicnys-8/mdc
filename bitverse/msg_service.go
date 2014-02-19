@@ -1,7 +1,7 @@
 package bitverse
 
 import (
-	"fmt"
+	//"fmt"
 	"time"
 )
 
@@ -18,7 +18,6 @@ type MsgServiceReply struct {
 	msgReplyCallback MsgReplyCallback
 	timeout          int32
 	timestamp        int32
-	seqNr            int
 }
 
 func composeMsgService(secret string, id string, observe MsgServiceObserver, edgeNode *EdgeNode) *MsgService {
@@ -43,16 +42,13 @@ func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeou
 	msgServiceReply := new(MsgServiceReply)
 	msgServiceReply.timeout = timeout
 	msgServiceReply.msgReplyCallback = msgReplyCallback
-	msgServiceReply.seqNr = msg.Id
 	msgServiceReply.timestamp = int32(time.Now().Unix())
-
-	msgService.edgeNode.msgServiceReplies[msgServiceReply.seqNr] = msgServiceReply
+	msgService.edgeNode.msgServiceReplies[msg.Id] = msgServiceReply
 
 	msgService.edgeNode.send(msg)
 }
 
 func (msgService *MsgService) Reply(msg *Msg, payload string) {
-	fmt.Println("XXXX" + payload)
 	encryptedPayload := encrypt(msgService.aesKey, payload)
 	replyMsg := ComposeDataMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedPayload)
 	replyMsg.Id = msg.Id // use the same id as the sender

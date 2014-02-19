@@ -40,7 +40,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 			select {
 			case msg := <-superNode.msgChannel:
 				debug("supernode: received " + msg.String())
-				if msg.Dst == superNode.Id() && msg.Type == Data { // ignore
+				if msg.Dst == superNode.Id() && msg.Type == Data { // ignore, not supported
 				} else if msg.Type == Heartbeat {
 					superNode.forwardToChildren(msg)
 				} else if msg.Type == Children {

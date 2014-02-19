@@ -1,6 +1,7 @@
 package bitverse
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -25,7 +26,7 @@ type Msg struct {
 	Src       string
 	Dst       string
 	ServiceId string
-	Id        int
+	Id        string
 }
 
 func ComposeDataMsg(src string, dst string, serviceId string, payload string) *Msg {
@@ -34,7 +35,7 @@ func ComposeDataMsg(src string, dst string, serviceId string, payload string) *M
 	msg.Payload = payload
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = getSeqNr()
+	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
 	msg.ServiceId = serviceId
 
 	return msg
@@ -46,7 +47,7 @@ func ComposeHeartbeatMsg(src string, dst string) *Msg {
 	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
@@ -57,7 +58,7 @@ func ComposeChildrenRequestMsg(src string, dst string) *Msg {
 	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
@@ -68,7 +69,7 @@ func ComposeChildrenReplyMsg(src string, dst string, json string) *Msg {
 	msg.Payload = json
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
@@ -79,7 +80,7 @@ func ComposeChildJoin(src string, childId string) *Msg {
 	msg.Payload = childId
 	msg.Src = src
 	msg.Dst = ""
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
@@ -90,7 +91,7 @@ func ComposeChildLeft(src string, childId string) *Msg {
 	msg.Payload = childId
 	msg.Src = src
 	msg.Dst = ""
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
@@ -101,7 +102,7 @@ func ComposeHandshakeMsg(src string) *Msg {
 	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = ""
-	msg.Id = 0
+	msg.Id = ""
 	msg.ServiceId = ""
 	return msg
 }
