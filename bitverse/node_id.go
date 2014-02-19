@@ -2,7 +2,8 @@ package bitverse
 
 import (
 	"crypto/sha1"
-	"encoding/base64"
+	//"encoding/base64"
+	"fmt"
 	"github.com/nu7hatch/gouuid"
 )
 
@@ -28,7 +29,9 @@ func generateNodeId() NodeId {
 	// calculate sha-1 hash
 	hasher := sha1.New()
 	hasher.Write([]byte(u.String()))
-	nodeId.hashkey = base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	//nodeId.hashkey = base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+
+	nodeId.hashkey = fmt.Sprintf("%x", hasher.Sum(nil))
 
 	return nodeId
 }
