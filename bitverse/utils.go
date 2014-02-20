@@ -37,6 +37,16 @@ func decodeBase64(s string) ([]byte, error) {
 	return data, nil
 }
 
+// Generate a symmetric key. This is suitable for session keys
+// and other short-term key material.
+func GenerateSecretKey() (key []byte, err error) {
+	keySize := 32
+	key = make([]byte, keySize)
+
+	io.ReadFull(rand.Reader, key)
+	return
+}
+
 func encrypt(key string, text string) string {
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
