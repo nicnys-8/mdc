@@ -67,11 +67,11 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 }
 ```
 
-To create a service we need to call the *CreateMsgService* function and pass along a service id and an encryption key. It is up to developer to securely pass and store the encryption key.
+To create a service we need to call the *CreateMsgService* function and pass along a service id (does not have to be globally unique) and an encryption key. It is up to developer to securely pass and store the encryption key.
 
 ```go
-var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7" // uuid
-var secret = "x very very very very secret key"        // aes encryption key, 16, 24, or 32 bytes
+var serviceId = "my service"
+var secret = "x very very very very secret key" // aes encryption key, 16, 24, or 32 bytes
 
 msgServiceObserver := new(MsgServiceObserver)
 edgeNode.CreateMsgService(secret, serviceId, msgServiceObserver)
@@ -80,9 +80,9 @@ edgeNode.CreateMsgService(secret, serviceId, msgServiceObserver)
 Messages can easily be send using the *Send* function on the messaging service object.  
 
 ```go
-var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7" // uuid
+var serviceId = "my service"
 msgService := edgeNode.GetMsgService(serviceId)
-msgService.Send(id, "hello")
+msgService.Send("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello")
 
 ```
 
