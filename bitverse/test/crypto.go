@@ -161,7 +161,7 @@ func importKeyFromPem(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey,
 	return
 }
 
-func Sign(prv *rsa.PrivateKey, m []byte) (sig []byte, err error) {
+func sign(prv *rsa.PrivateKey, m []byte) (sig []byte, err error) {
 	h := sha256.New()
 	h.Write(m)
 	d := h.Sum(nil)
@@ -169,7 +169,7 @@ func Sign(prv *rsa.PrivateKey, m []byte) (sig []byte, err error) {
 	return
 }
 
-func Verify(pub *rsa.PublicKey, m, sig []byte) (err error) {
+func verify(pub *rsa.PublicKey, m, sig []byte) (err error) {
 	h := sha256.New()
 	h.Write(m)
 	d := h.Sum(nil)
@@ -216,6 +216,10 @@ func main() {
 		fmt.Println(err)
 	}
 
-	fmt.Println(prv)
 	fmt.Println(pub)
+
+	str := "hejsan hopp"
+	signature, _ := sign(prv, []byte(str))
+	fmt.Println(signature)
+
 }
