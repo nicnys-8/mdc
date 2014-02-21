@@ -5,9 +5,6 @@ import (
 	"mdc/bitverse"
 )
 
-var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7" // uuid
-var secret = "x very very very very secret key"        // aes encryption key, 16, 24, or 32 bytes
-
 /// SERVICE OBSERVER
 
 type MsgServiceObserver struct {
@@ -87,10 +84,21 @@ func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, r
 	})
 }
 
+// uuid
+var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7"
+
+// aes encryption key should be 32 bytes encoded as hex
+// can be genetated by calling ./bitverse --generate-aes-secret from unix shell or
+// by calling bitverse.GenerateAesSecret()
+var secret = "5da71277f031a9dff561f0a72bb72651e260dab0735b767f2f7a62dec9e99760"
+
 /// MAIN
 
 func main() {
 	var done chan int
+
+	secret2, _ := bitverse.GenerateAesSecret()
+	fmt.Println(secret2)
 
 	node, done := bitverse.MakeEdgeNode(bitverse.MakeWSTransport(), new(BitverseObserver))
 	//node.Debug()
