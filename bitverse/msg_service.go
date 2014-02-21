@@ -28,13 +28,13 @@ func composeMsgService(secret string, id string, observe MsgServiceObserver, edg
 }
 
 func (msgService *MsgService) Send(dst string, payload string) {
-	encryptedPayload := aesEncrypt(msgService.aesKey, payload)
+	encryptedPayload := encryptAES(msgService.aesKey, payload)
 	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
 	msgService.edgeNode.send(msg)
 }
 
 func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeout int32, callback func(timedOut bool, msg *Msg)) {
-	encryptedPayload := aesEncrypt(msgService.aesKey, payload)
+	encryptedPayload := encryptAES(msgService.aesKey, payload)
 
 	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
 
@@ -48,7 +48,7 @@ func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeou
 }
 
 func (msgService *MsgService) Reply(msg *Msg, payload string) {
-	encryptedPayload := aesEncrypt(msgService.aesKey, payload)
+	encryptedPayload := encryptAES(msgService.aesKey, payload)
 	replyMsg := composeMsgServiceMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedPayload)
 	replyMsg.Id = msg.Id // use the same id as the sender
 

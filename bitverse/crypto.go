@@ -69,7 +69,9 @@ func decodeBase64(s string) ([]byte, error) {
 	return data, nil
 }
 
-func aesEncrypt(hexKey string, text string) string {
+// aes stuff
+
+func encryptAES(hexKey string, text string) string {
 	key, err := hex2Bin(hexKey)
 	if err != nil {
 		panic(err)
@@ -91,7 +93,7 @@ func aesEncrypt(hexKey string, text string) string {
 	return encodeBase64(ciphertext)
 }
 
-func aesDecrypt(hexKey string, ciphertext string) (string, error) {
+func decryptAES(hexKey string, ciphertext string) (string, error) {
 	key, err := hex2Bin(hexKey)
 	if err != nil {
 		panic(err)
@@ -121,3 +123,7 @@ func aesDecrypt(hexKey string, ciphertext string) (string, error) {
 
 	return string(temp), nil
 }
+
+// rsa stuff
+
+//key, err := rsa.GenerateKey(rand.Reader, RSAKeySize)

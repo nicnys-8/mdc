@@ -52,7 +52,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							debug("edgenode: failed to deliver message, no observer registered")
 						} else {
 							var err error
-							msg.Payload, err = aesDecrypt(msgService.aesKey, msg.Payload)
+							msg.Payload, err = decryptAES(msgService.aesKey, msg.Payload)
 							if err != nil {
 								info("edgenode: failed to decrypt payload, ignoring incoming msg")
 							} else {
