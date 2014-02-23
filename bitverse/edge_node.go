@@ -49,6 +49,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 					if msgService == nil {
 						debug("edgenode: failed to deliver message, no such service with id <" + msg.MsgServiceName + "> created")
 					} else {
+						msg.msgService = msgService
 						observer := msgService.observer
 						if observer == nil {
 							debug("edgenode: failed to deliver message, no observer registered")

@@ -30,7 +30,7 @@ const (
 	Claim
 )
 
-// repo cmd status
+// status
 const (
 	Ok = iota
 	Error
@@ -59,7 +59,8 @@ type Msg struct {
 	RepoCmd        int    // used by repo service
 	RepoKey        string // used by repo service
 	RepoValue      string // used by repo service
-	Status         int
+	Status         int    // status, e.g. Ok or Error
+	msgService     *MsgService
 }
 
 func (msg *Msg) String() string {
@@ -162,6 +163,12 @@ func composeRepoClaimMsg(src string, superNodeId string, repoId string, publicKe
 
 	return msg
 }
+
+func (msg *Msg) Reply(data string) {
+	msg.msgService.reply(msg, data)
+}
+
+/// PRIVATE
 
 // Bitverse control messages
 

@@ -27,13 +27,13 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 	} else if msg.Payload == "how are you doing?" {
 		fmt.Println("got a message: how are you doing?")
 		fmt.Println("sending reply (how are you doing): i am fine")
-		msgService.Reply(msg, "i am fine")
+		msg.Reply("i am fine")
 	} else if msg.Payload == "hi dude!" {
 		fmt.Println("got a message: hi dude!")
 	} else if msg.Payload == "who are you?" {
 		fmt.Println("got a message: who are you?")
 		fmt.Println("sending reply (who are you?): i am joker")
-		msgService.Reply(msg, "i am joker")
+		msg.Reply("i am joker")
 	} else {
 		fmt.Println("ERROR got a msg: " + msg.Payload)
 	}

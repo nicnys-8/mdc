@@ -35,15 +35,15 @@ func (msgService *MsgService) SendAndGetReply(dst string, data string, timeout i
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *MsgService) Reply(msg *Msg, data string) {
+/// PRIVATE
+
+func (msgService *MsgService) reply(msg *Msg, data string) {
 	encryptedData := encryptAes(msgService.aesEncryptionKey, data)
 	replyMsg := composeMsgServiceMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedData)
 	replyMsg.Id = msg.Id // use the same id as the sender
 
 	msgService.edgeNode.send(replyMsg)
 }
-
-/// PRIVATE
 
 func (msgService *MsgService) sendMsg(msg *Msg) {
 	msg.Payload = encryptAes(msgService.aesEncryptionKey, msg.Payload)
