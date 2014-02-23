@@ -7,8 +7,10 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,6 +36,28 @@ func maxMessageLength(key *rsa.PublicKey) int {
 		return 0
 	}
 	return (key.N.BitLen() / 8) - (2 * sha256.Size) - 2
+}
+
+func hex2Bin(hexStr string) (bytes []byte, err error) {
+	bytes, err = hex.DecodeString(hexStr)
+	return
+}
+
+func encodeHex(bytes []byte) string {
+	return fmt.Sprintf("%x", bytes)
+}
+
+func encodeBase64(b []byte) string {
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+func decodeBase64(s string) ([]byte, error) {
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		err := errors.New("failed to base64 decode payload")
+		return nil, err
+	}
+	return data, nil
 }
 
 /// PRIVATE
@@ -161,17 +185,19 @@ func importKeyFromPem(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey,
 	return
 }
 
-func sign(prv *rsa.PrivateKey, m []byte) (sig []byte, err error) {
+func sign(prv *rsa.PrivateKey, msg string) (signature string, err error) {
 	h := sha256.New()
-	h.Write(m)
+	h.Write([]byte(msg))
 	d := h.Sum(nil)
-	sig, err = rsa.SignPSS(rand.Reader, prv, crypto.SHA256, d, nil)
+	sigBin, _ := rsa.SignPSS(rand.Reader, prv, crypto.SHA256, d, nil)
+	signature = encodeBase64(sigBin)
 	return
 }
 
-func verify(pub *rsa.PublicKey, m, sig []byte) (err error) {
+func verify(pub *rsa.PublicKey, msg string, signature string) (err error) {
+	sig, _ := decodeBase64(signature)
 	h := sha256.New()
-	h.Write(m)
+	h.Write([]byte(msg))
 	d := h.Sum(nil)
 	return rsa.VerifyPSS(pub, crypto.SHA256, d, sig, nil)
 }
@@ -202,24 +228,36 @@ func ImportPem(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey, err er
 }
 
 func main() {
-	aesSecret, _ := GenerateSecretAesKey()
-	fmt.Println("binary: ", aesSecret)
-	hexStr := fmt.Sprintf("%x", aesSecret)
-	fmt.Println("hex: " + hexStr)
+	//aesSecret, _ := GenerateSecretAesKey()
+	//fmt.Println("binary: ", aesSecret)
+	//hexStr := fmt.Sprintf("%x", aesSecret)
+	//fmt.Println("hex: " + hexStr)
 
-	aesSecret2, _ := hex.DecodeString(hexStr)
-	fmt.Println("binary: ", aesSecret2)
+	//aesSecret2, _ := hex.DecodeString(hexStr)
+	//fmt.Println("binary: ", aesSecret2)
 
 	GeneratePem("cert")
-	prv, pub, err := ImportPem("cert")
+	prv, _, err := ImportPem("cert")
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println(pub)
+	GeneratePem("cert2")
+	_, pub2, err := ImportPem("cert2")
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	str := "hejsan hopp"
-	signature, _ := sign(prv, []byte(str))
+	signature, _ := sign(prv, str)
 	fmt.Println(signature)
+
+	err2 := verify(pub2, str, signature)
+
+	if err2 != nil {
+		fmt.Printf("failed to very signature")
+	} else {
+		fmt.Printf("signature ok")
+	}
 
 }

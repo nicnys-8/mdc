@@ -77,7 +77,7 @@ msgServiceObserver := new(MsgServiceObserver)
 edgeNode.CreateMsgService(secret, serviceId, msgServiceObserver)
 ```
 
-Messages can easily be send using the *bitverse.Send(...)* function on the messaging service object.  
+Messages can easily be send using the *bitverse.Send(...)* function on the messaging service object. It is also possible to get a reference to an already registered messaging service object by calling *bitverse.GetMsgService(...)*. 
 
 ```go
 var serviceId = "my service"
@@ -97,6 +97,14 @@ msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 
 			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876")
 		}
 	})
+```
+
+The remote messaging service object receiving that message can then reply to that particular message by calling the *msgServide.Reply(...)*.
+
+```go
+if msg.Payload == "hello" {
+	msgService.Reply(msg, "i am joker")
+}
 ```
 
 For a full example, see https://raw.github.com/ltu-cloudberry/mdc/master/bitverse/examples/messaging.go. Setup a super node at localhost:1111 (`bitverse --local localhost:1111`) and call *go run messaging.go*. 

@@ -27,7 +27,7 @@ const (
 const (
 	Store = iota
 	Lookup
-	CreateRepo
+	Claim
 )
 
 var mutex sync.Mutex
@@ -67,6 +67,8 @@ func (msg *Msg) String() string {
 
 /// PRIVATE
 
+/// Messaging service messages
+
 func composeMsgServiceMsg(src string, dst string, serviceId string, payload string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
@@ -79,6 +81,8 @@ func composeMsgServiceMsg(src string, dst string, serviceId string, payload stri
 	msg.MsgChannelId = serviceId
 	return msg
 }
+
+/// Storage service messages
 
 func composeStorageServiceStoreMsg(src string, superNodeId string, repoId string, key string, value string) *Msg {
 	msg := new(Msg)
@@ -111,6 +115,24 @@ func composeStorageServiceLookupMsg(src string, superNodeId string, repoId strin
 	msg.MsgChannelId = "internal"
 	return msg
 }
+
+func composeStorageServiceClaimMsg(src string, superNodeId string, repoId string, publicKey string) *Msg {
+	msg := new(Msg)
+	msg.Type = Data
+	msg.Payload = publicKey
+	msg.Src = src
+	msg.Dst = superNodeId
+	msg.Key = ""
+	msg.Value = ""
+	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
+	msg.ServiceType = Storage
+	msg.RepositoryId = repoId
+	msg.StorageServiceCmd = Store
+	msg.MsgChannelId = "internal"
+	return msg
+}
+
+// Bitverse control messages
 
 func composeHeartbeatMsg(src string, dst string) *Msg {
 	msg := new(Msg)
@@ -190,6 +212,8 @@ func composeHandshakeMsg(src string) *Msg {
 	msg.MsgChannelId = ""
 	return msg
 }
+
+// Other
 
 func getSeqNr() int {
 	mutex.Lock()

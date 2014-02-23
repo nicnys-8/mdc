@@ -52,7 +52,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							debug("edgenode: failed to deliver message, no observer registered")
 						} else {
 							var err error
-							msg.Payload, err = decryptAES(msgService.aesKey, msg.Payload)
+							msg.Payload, err = decryptAes(msgService.aesKey, msg.Payload)
 							if err != nil {
 								info("edgenode: failed to decrypt payload, ignoring incoming msg")
 							} else {
@@ -164,9 +164,9 @@ func (edgeNode *EdgeNode) CreateMsgService(secret string, serviceId string, obse
 	}
 }
 
-func (edgeNode *EdgeNode) CreateStorageService(secret string, repoId string) *StorageService {
+func (edgeNode *EdgeNode) ClaimRepository(repoId string, publicKey string, callback func(success bool)) *StorageService {
 	if edgeNode.storageServices[repoId] == nil {
-		storageService := composeStorageService(secret, repoId, edgeNode)
+		storageService := composeStorageService("", repoId, edgeNode)
 		edgeNode.storageServices[repoId] = storageService
 		return storageService
 	} else {
