@@ -58,7 +58,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							} else {
 								reply := edgeNode.replyTable[msg.Id]
 								if reply != nil {
-									reply.callback(true, &msg)
+									reply.callback(true, &msg.Payload)
 									delete(edgeNode.replyTable, msg.Id)
 								} else {
 									observer.OnDeliver(msgService, &msg)

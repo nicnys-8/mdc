@@ -13,7 +13,7 @@ type MsgService struct {
 }
 
 type msgReplyType struct {
-	callback  func(timedOut bool, msg *Msg)
+	callback  func(success bool, data *string)
 	timeout   int32
 	timestamp int32
 }
@@ -27,16 +27,16 @@ func composeMsgService(secret string, id string, observe MsgServiceObserver, edg
 	return service
 }
 
-func (msgService *MsgService) Send(dst string, payload string) {
-	encryptedPayload := encryptAes(msgService.aesKey, payload)
-	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
+func (msgService *MsgService) Send(dst string, data string) {
+	encryptedData := encryptAes(msgService.aesKey, data)
+	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedData)
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeout int32, callback func(success bool, msg *Msg)) {
-	encryptedPayload := encryptAes(msgService.aesKey, payload)
+func (msgService *MsgService) SendAndGetReply(dst string, data string, timeout int32, callback func(success bool, data *string)) {
+	encryptedData := encryptAes(msgService.aesKey, data)
 
-	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedPayload)
+	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedData)
 
 	reply := new(msgReplyType)
 	reply.timeout = timeout
@@ -47,9 +47,9 @@ func (msgService *MsgService) SendAndGetReply(dst string, payload string, timeou
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *MsgService) Reply(msg *Msg, payload string) {
-	encryptedPayload := encryptAes(msgService.aesKey, payload)
-	replyMsg := composeMsgServiceMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedPayload)
+func (msgService *MsgService) Reply(msg *Msg, data string) {
+	encryptedData := encryptAes(msgService.aesKey, data)
+	replyMsg := composeMsgServiceMsg(msgService.edgeNode.Id(), msg.Src, msgService.id, encryptedData)
 	replyMsg.Id = msg.Id // use the same id as the sender
 
 	msgService.edgeNode.send(replyMsg)

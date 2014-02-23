@@ -28,7 +28,7 @@ func composeStorageService(secret string, repoId string, edgeNode *EdgeNode) *St
 	return service
 }
 
-func (msgService *StorageService) Store(key string, value string, timeout int32, callback func(timedOut bool, msg *Msg)) {
+func (msgService *StorageService) Store(key string, value string, timeout int32, callback func(timedOut bool, oldValue *string)) {
 	msg := composeStorageServiceStoreMsg(msgService.edgeNode.Id(), msgService.edgeNode.superNode.Id(), msgService.repoId, key, value)
 
 	reply := new(msgReplyType)
@@ -40,7 +40,7 @@ func (msgService *StorageService) Store(key string, value string, timeout int32,
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *StorageService) Lookup(key string, timeout int32, callback func(timedOut bool, msg *Msg)) {
+func (msgService *StorageService) Lookup(key string, timeout int32, callback func(timedOut bool, value *string)) {
 	msg := composeStorageServiceLookupMsg(msgService.edgeNode.Id(), msgService.edgeNode.superNode.Id(), msgService.repoId, key)
 
 	reply := new(msgReplyType)
