@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Message type definition
+// message type definition
 const (
 	Handshake = iota
 	Data
@@ -16,35 +16,50 @@ const (
 	Bye
 )
 
-// Service type definition
+// service type definition
 const (
 	Messaging = iota
-	Storage
+	Repo
 	Control
 )
 
-// storage service cmd
+// repo cmd:s
 const (
 	Store = iota
 	Lookup
 	Claim
 )
 
+// repo cmd status
+const (
+	Ok = iota
+	Error
+)
+
+// payload type
+const (
+	String = iota
+	Nil
+)
+
 var mutex sync.Mutex
 var seqNrCounter int = 0
 
 type Msg struct {
-	Type              int
-	Payload           string
-	Src               string
-	Dst               string
-	Id                string
-	ServiceType       int
-	MsgChannelId      string // used by messaging service
-	RepositoryId      string // used by storage service
-	StorageServiceCmd int    // used by storage service
-	Key               string // used by storage service
-	Value             string // used by storage service
+	Type           int    // message type
+	Payload        string // payload
+	PayloadType    int    // payload format, e.g nil or string
+	Src            string // source
+	Dst            string // desintation
+	Id             string // unique id as calculated by sender
+	ServiceType    int    // service type
+	Signature      string // rsa signature
+	MsgServiceName string // used by messaging service
+	RepoId         string // used by repo service
+	RepoCmd        int    // used by repo service
+	RepoKey        string // used by repo service
+	RepoValue      string // used by repo service
+	Status         int
 }
 
 func (msg *Msg) String() string {
@@ -59,7 +74,7 @@ func (msg *Msg) String() string {
 	} else if msg.Type == ChildJoined {
 		return "msg[type:childleft to:" + msg.Dst + " from:" + msg.Src + " payload:" + msg.Payload + "]"
 	} else if msg.Type == Data {
-		return "msg[type:data to:" + msg.Dst + " from:" + msg.Src + " payload:" + msg.Payload + " msgchannelid:" + msg.MsgChannelId + "]"
+		return "msg[type:data to:" + msg.Dst + " from:" + msg.Src + " payload:" + msg.Payload + " msgchannelid:" + msg.MsgServiceName + "]"
 	} else {
 		return "msg[type:unkown]"
 	}
@@ -73,62 +88,78 @@ func composeMsgServiceMsg(src string, dst string, serviceId string, payload stri
 	msg := new(Msg)
 	msg.Type = Data
 	msg.Payload = payload
+	msg.PayloadType = String
 	msg.Src = src
 	msg.Dst = dst
 	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
+
 	msg.ServiceType = Messaging
-	msg.RepositoryId = ""
-	msg.MsgChannelId = serviceId
+	msg.MsgServiceName = serviceId
+
+	msg.Status = Ok
+
 	return msg
 }
 
-/// Storage service messages
+/// Repo service messages
 
-func composeStorageServiceStoreMsg(src string, superNodeId string, repoId string, key string, value string) *Msg {
+func composeRepoStoreMsg(src string, superNodeId string, repoId string, key string, value string, signature string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
-	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = superNodeId
-	msg.Key = key
-	msg.Value = value
 	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
-	msg.ServiceType = Storage
-	msg.RepositoryId = repoId
-	msg.StorageServiceCmd = Store
-	msg.MsgChannelId = "internal"
+
+	msg.MsgServiceName = repoId
+	msg.ServiceType = Repo
+
+	msg.RepoId = repoId
+	msg.RepoCmd = Store
+	msg.RepoKey = key
+	msg.RepoValue = value
+
+	msg.Signature = signature
+
+	msg.Status = Ok
+
 	return msg
 }
 
-func composeStorageServiceLookupMsg(src string, superNodeId string, repoId string, key string) *Msg {
+func composeRepoLookupMsg(src string, superNodeId string, repoId string, key string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
-	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = superNodeId
-	msg.Key = key
-	msg.Value = ""
 	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
-	msg.ServiceType = Storage
-	msg.RepositoryId = repoId
-	msg.StorageServiceCmd = Store
-	msg.MsgChannelId = "internal"
+
+	msg.MsgServiceName = repoId
+	msg.ServiceType = Repo
+
+	msg.RepoId = repoId
+	msg.RepoCmd = Store
+	msg.RepoKey = key
+
+	msg.Status = Ok
+
 	return msg
 }
 
-func composeStorageServiceClaimMsg(src string, superNodeId string, repoId string, publicKey string) *Msg {
+func composeRepoClaimMsg(src string, superNodeId string, repoId string, publicKey string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
-	msg.Payload = publicKey
 	msg.Src = src
 	msg.Dst = superNodeId
-	msg.Key = ""
-	msg.Value = ""
 	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
-	msg.ServiceType = Storage
-	msg.RepositoryId = repoId
-	msg.StorageServiceCmd = Store
-	msg.MsgChannelId = "internal"
+	msg.Signature = publicKey
+
+	msg.MsgServiceName = repoId
+	msg.ServiceType = Repo
+
+	msg.RepoId = repoId
+	msg.RepoCmd = Claim
+
+	msg.Status = Ok
+
 	return msg
 }
 
@@ -137,26 +168,18 @@ func composeStorageServiceClaimMsg(src string, superNodeId string, repoId string
 func composeHeartbeatMsg(src string, dst string) *Msg {
 	msg := new(Msg)
 	msg.Type = Heartbeat
-	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
 	return msg
 }
 
 func composeChildrenRequestMsg(src string, dst string) *Msg {
 	msg := new(Msg)
 	msg.Type = Children
-	msg.Payload = ""
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
 	return msg
 }
 
@@ -166,10 +189,7 @@ func composeChildrenReplyMsg(src string, dst string, json string) *Msg {
 	msg.Payload = json
 	msg.Src = src
 	msg.Dst = dst
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
 	return msg
 }
 
@@ -178,11 +198,7 @@ func composeChildJoin(src string, childId string) *Msg {
 	msg.Type = ChildJoined
 	msg.Payload = childId
 	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
 	return msg
 }
 
@@ -191,29 +207,17 @@ func composeChildLeft(src string, childId string) *Msg {
 	msg.Type = ChildLeft
 	msg.Payload = childId
 	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
-
 	return msg
 }
 
 func composeHandshakeMsg(src string) *Msg {
 	msg := new(Msg)
 	msg.Type = Handshake
-	msg.Payload = ""
 	msg.Src = src
-	msg.Dst = ""
-	msg.Id = ""
 	msg.ServiceType = Control
-	msg.RepositoryId = ""
-	msg.MsgChannelId = ""
 	return msg
 }
-
-// Other
 
 func getSeqNr() int {
 	mutex.Lock()

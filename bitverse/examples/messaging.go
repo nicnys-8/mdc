@@ -17,8 +17,12 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 		msgService.Send(msg.Src, "hi dude!")
 
 		fmt.Println("sending: how are you doing?")
-		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(success bool, reply interface{}) {
-			fmt.Println("got a reply (how are you doing?): " + reply.(string))
+		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(err error, reply interface{}) {
+			if err == nil {
+				fmt.Println("got a reply (how are you doing?): " + reply.(string))
+			} else {
+				fmt.Println("failed to get a reply for (how are you doing?)")
+			}
 		})
 	} else if msg.Payload == "how are you doing?" {
 		fmt.Println("got a message: how are you doing?")
@@ -48,8 +52,13 @@ func (bitverseObserver *BitverseObserver) OnSiblingJoined(node *bitverse.EdgeNod
 	fmt.Println("sending: hello")
 
 	fmt.Println("sending: who are you?")
-	msgService.SendAndGetReply(id, "who are you?", 10, func(success bool, reply interface{}) {
-		fmt.Println("got a reply (who are you?): " + reply.(string))
+	msgService.SendAndGetReply(id, "who are you?", 10, func(err error, reply interface{}) {
+		if err == nil {
+			fmt.Println("got a reply (who are you?): " + reply.(string))
+		} else {
+			fmt.Println("failed to get a reply for (who are you?)")
+		}
+
 	})
 }
 
@@ -74,18 +83,17 @@ func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, r
 	remoteNode.SendChildrenRequest()
 
 	msgService := node.GetMsgService(serviceId)
-	msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply interface{}) {
-		if success {
+	msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(err error, reply interface{}) {
+		if err == nil {
 			fmt.Println("that was a surprise " + reply.(string))
 		} else {
 			// we will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
-			fmt.Println("failed to send message to node with id <does not exists>")
+			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876")
 		}
 	})
 }
 
-// uuid
-var serviceId = "6107911a-7554-4ea7-80fc-25ec5e2462a7"
+var serviceId = "myservice"
 
 // aes encryption key should be 32 bytes encoded as hex
 // can be genetated by calling ./bitverse --generate-aes-secret from unix shell or
@@ -105,7 +113,10 @@ func main() {
 	fmt.Println("-> my id is " + node.Id())
 
 	msgServiceObserver := new(MsgServiceObserver)
-	node.CreateMsgService(secret, serviceId, msgServiceObserver)
+	_, err := node.CreateMsgService(secret, serviceId, msgServiceObserver)
+	if err != nil {
+		panic(err)
+	}
 
 	go node.Connect("localhost:1111")
 

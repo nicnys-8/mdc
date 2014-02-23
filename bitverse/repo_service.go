@@ -1,8 +1,8 @@
 package bitverse
 
 import (
+	"crypto/rsa"
 	//"fmt"
-	"time"
 )
 
 type RepoMsgServiceObserver struct {
@@ -13,41 +13,31 @@ func (repoMsgServiceObserver *RepoMsgServiceObserver) OnDeliver(msgService *MsgS
 }
 
 type RepoService struct {
-	repoId     string
-	edgeNode   *EdgeNode
-	aesKey     string
-	msgService *MsgService
+	repoId           string
+	edgeNode         *EdgeNode
+	aesEncryptionKey string
+	msgService       *MsgService
+	prv              *rsa.PrivateKey
+	pub              *rsa.PublicKey
 }
 
-func composeRepoService(secret string, repoId string, edgeNode *EdgeNode) *RepoService {
+func composeRepoService(aesEncryptionKey string, prv *rsa.PrivateKey, pub *rsa.PublicKey, repoId string, edgeNode *EdgeNode, msgService *MsgService) *RepoService {
 	service := new(RepoService)
 	service.repoId = repoId
 	service.edgeNode = edgeNode
-	service.aesKey = secret
+	service.aesEncryptionKey = aesEncryptionKey
+	service.msgService = msgService
 
 	return service
 }
 
-func (repoService *RepoService) Store(key string, value string, timeout int32, callback func(timedOut bool, oldValue interface{})) {
-	msg := composeStorageServiceStoreMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key, value)
+func (repoService *RepoService) Store(key string, value string, timeout int32, callback func(err error, oldValue interface{})) {
+	msg := composeRepoStoreMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key, value, "hej")
+	repoService.msgService.sendMsgAndGetReply(msg, timeout, callback)
 
-	reply := new(msgReplyType)
-	reply.timeout = timeout
-	reply.callback = callback
-	reply.timestamp = int32(time.Now().Unix())
-	repoService.edgeNode.replyTable[msg.Id] = reply
-
-	repoService.edgeNode.send(msg)
 }
 
-func (repoService *RepoService) Lookup(key string, timeout int32, callback func(timedOut bool, value interface{})) {
-	msg := composeStorageServiceLookupMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key)
+func (repoService *RepoService) Lookup(key string, timeout int32, callback func(err error, value interface{})) {
+	//msg := composeRepoLookupMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key)
 
-	reply := new(msgReplyType)
-	reply.timeout = timeout
-	reply.callback = callback
-	reply.timestamp = int32(time.Now().Unix())
-	repoService.edgeNode.replyTable[msg.Id] = reply
-
-	repoService.edgeNode.send(msg)
 }

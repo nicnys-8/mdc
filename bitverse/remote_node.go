@@ -33,7 +33,7 @@ func makeRemoteNode(remoteNodeChannel chan *RemoteNode, writer io.Writer, remote
 
 func (remoteNode *RemoteNode) SendChildrenRequest() {
 	msg := composeChildrenRequestMsg(remoteNode.remoteId, remoteNode.id)
-	remoteNode.send(msg)
+	remoteNode.deliver(msg)
 }
 
 func (remoteNode *RemoteNode) Id() string {
@@ -46,7 +46,7 @@ func (remoteNode *RemoteNode) RemoteId() string {
 
 /// PRIVATE
 
-func (remoteNode *RemoteNode) send(msg *Msg) {
+func (remoteNode *RemoteNode) deliver(msg *Msg) {
 	enc := json.NewEncoder(remoteNode.writer)
 	err := enc.Encode(msg)
 

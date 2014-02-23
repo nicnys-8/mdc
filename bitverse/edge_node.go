@@ -1,12 +1,14 @@
 package bitverse
 
 import (
+	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"time"
 )
 
-var HEARTBEAT_RATE time.Duration = 10
-var MSG_SERVICE_GC_RATE time.Duration = 1
+const HEARTBEAT_RATE time.Duration = 10
+const MSG_SERVICE_GC_RATE time.Duration = 1
 
 type EdgeNode struct {
 	nodeId            NodeId
@@ -43,27 +45,36 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 			case msg := <-edgeNode.msgChannel:
 				debug("edgenode: received " + msg.String())
 				if msg.Dst == edgeNode.Id() && msg.Type == Data {
-					msgService := edgeNode.msgServices[msg.MsgChannelId]
+					msgService := edgeNode.msgServices[msg.MsgServiceName]
 					if msgService == nil {
-						debug("edgenode: failed to deliver message, no such service with id <" + msg.MsgChannelId + "> created")
+						debug("edgenode: failed to deliver message, no such service with id <" + msg.MsgServiceName + "> created")
 					} else {
 						observer := msgService.observer
 						if observer == nil {
 							debug("edgenode: failed to deliver message, no observer registered")
 						} else {
 							var err error
-							msg.Payload, err = decryptAes(msgService.aesKey, msg.Payload)
+							if msg.Payload != "" && msg.PayloadType != Nil {
+								msg.Payload, err = decryptAes(msgService.aesEncryptionKey, msg.Payload)
+							}
 							if err != nil {
 								info("edgenode: failed to decrypt payload, ignoring incoming msg")
 							} else {
 								reply := edgeNode.replyTable[msg.Id]
 								if reply != nil {
-									reply.callback(true, msg.Payload)
+									if msg.Status == Error {
+										reply.callback(errors.New(msg.Payload), nil)
+									} else {
+										if msg.PayloadType == Nil {
+											reply.callback(nil, nil)
+										} else {
+											reply.callback(nil, msg.Payload)
+										}
+									}
 									delete(edgeNode.replyTable, msg.Id)
 								} else {
 									observer.OnDeliver(msgService, &msg)
 								}
-
 							}
 						}
 					}
@@ -131,7 +142,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 				timeLeft := reply.timeout - elapsedTime
 
 				if timeLeft <= 0 {
-					reply.callback(false, nil) // notify the callback clousure about this timeout
+					reply.callback(errors.New("timeout"), nil) // notify the callback clousure about this timeout
 					delete(edgeNode.replyTable, msgId)
 				}
 
@@ -142,9 +153,13 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	return edgeNode, done
 }
 
+// DEBUG
+
 func (edgeNode *EdgeNode) Debug() {
 	debugFlag = true
 }
+
+// BITVERSE MANAGEMENT
 
 func (edgeNode *EdgeNode) Id() string {
 	return edgeNode.nodeId.String()
@@ -154,37 +169,72 @@ func (edgeNode *EdgeNode) Connect(remoteAddress string) {
 	edgeNode.transport.ConnectToNode(remoteAddress, edgeNode.remoteNodeChannel, edgeNode.msgChannel)
 }
 
-func (edgeNode *EdgeNode) CreateMsgService(secret string, serviceId string, observer MsgServiceObserver) *MsgService {
-	if edgeNode.msgServices[serviceId] == nil {
-		msgService := composeMsgService(secret, serviceId, observer, edgeNode)
-		edgeNode.msgServices[serviceId] = msgService
-		return msgService
-	} else {
-		return edgeNode.msgServices[serviceId]
-	}
+func (edgeNode *EdgeNode) SendHeartbeat() {
+	msg := composeHeartbeatMsg(edgeNode.Id(), edgeNode.superNode.Id())
+	edgeNode.superNode.deliver(msg)
 }
 
-/*	if edgeNode.storageServices[repoId] == nil {
-		storageService := composeStorageService("", repoId, edgeNode)
-		edgeNode.storageServices[repoId] = storageService
-		return storageService
+// MSG SERVICE MANAGEMENT
+
+func (edgeNode *EdgeNode) CreateMsgService(aesEncryptionKey string, serviceId string, observer MsgServiceObserver) (*MsgService, error) {
+	//if serviceId == REPO_MSG_SERVICE_NAME {
+	//	return nil, errors.New("service id <internal> reserved for internal usage")
+	//}
+
+	if edgeNode.msgServices[serviceId] == nil {
+		msgService := composeMsgService(aesEncryptionKey, serviceId, observer, edgeNode)
+		edgeNode.msgServices[serviceId] = msgService
+		return msgService, nil
 	} else {
-		return edgeNode.storageServices[repoId]
+		return nil, errors.New("service id <" + serviceId + "> already exists")
 	}
-} */
+}
 
 func (edgeNode *EdgeNode) GetMsgService(serviceId string) *MsgService {
 	return edgeNode.msgServices[serviceId]
 }
 
-func (edgeNode *EdgeNode) SendHeartbeat() {
-	msg := composeHeartbeatMsg(edgeNode.Id(), edgeNode.superNode.Id())
-	edgeNode.superNode.send(msg)
+// REPO MANAGEMENT
+
+func (edgeNode *EdgeNode) ClaimRepository(repoId string, aesEncryptionKey string, prv *rsa.PrivateKey, pub *rsa.PublicKey, timeout int32, callback func(err error, repo interface{})) error {
+	repoMsgServiceObserver := new(RepoMsgServiceObserver)
+
+	repoMsgService, err := edgeNode.CreateMsgService(aesEncryptionKey, repoId, repoMsgServiceObserver)
+	if err != nil {
+		return err
+	}
+
+	pubPemKey, err := generatePublicPem(pub)
+	if err != nil {
+		return err
+	}
+
+	msg := composeRepoClaimMsg(edgeNode.Id(), edgeNode.superNode.Id(), repoId, pubPemKey)
+	repoMsgService.sendMsgAndGetReply(msg, timeout, func(err error, reply interface{}) {
+		info("got a reply")
+		if err != nil {
+			info("failed to get a claim request reply back")
+			callback(err, nil)
+		} else {
+			info("got a claim request reply back")
+			repoService := composeRepoService(aesEncryptionKey, prv, pub, repoId, edgeNode, repoMsgService)
+			callback(nil, repoService)
+		}
+	})
+
+	return nil // no errors
 }
 
 /// PRIVATE
 
+func (edgeNode *EdgeNode) registerReplyCallback(msgId string, timeout int32, callback func(err error, data interface{})) {
+	reply := new(msgReplyType)
+	reply.timeout = timeout
+	reply.callback = callback
+	reply.timestamp = int32(time.Now().Unix())
+	edgeNode.replyTable[msgId] = reply
+}
+
 func (edgeNode *EdgeNode) send(msg *Msg) {
-	//msg := ComposeDataMsg(edgeNode.Id(), dst, service, payload)
-	edgeNode.superNode.send(msg)
+	edgeNode.superNode.deliver(msg)
 }
