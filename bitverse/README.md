@@ -99,7 +99,7 @@ msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 
 	})
 ```
 
-The remote messaging service object receiving that message can then reply to that particular message by calling the *msg.Reply(...)*.
+The remote messaging service object receiving that message can then reply to that particular message by calling *msg.Reply(...)*.
 
 ```go
 if msg.Payload == "hello" {
