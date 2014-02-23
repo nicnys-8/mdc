@@ -103,7 +103,7 @@ The remote messaging service object receiving that message can then reply to tha
 
 ```go
 if msg.Payload == "hello" {
-	msgService.Reply(msg, "i am joker")
+	msgService.Reply(msg, "hi!")
 }
 ```
 
