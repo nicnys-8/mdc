@@ -13,7 +13,7 @@ type MsgService struct {
 }
 
 type msgReplyType struct {
-	callback  func(success bool, data *string)
+	callback  func(success bool, data interface{})
 	timeout   int32
 	timestamp int32
 }
@@ -33,7 +33,7 @@ func (msgService *MsgService) Send(dst string, data string) {
 	msgService.edgeNode.send(msg)
 }
 
-func (msgService *MsgService) SendAndGetReply(dst string, data string, timeout int32, callback func(success bool, data *string)) {
+func (msgService *MsgService) SendAndGetReply(dst string, data string, timeout int32, callback func(success bool, data interface{})) {
 	encryptedData := encryptAes(msgService.aesKey, data)
 
 	msg := composeMsgServiceMsg(msgService.edgeNode.Id(), dst, msgService.id, encryptedData)

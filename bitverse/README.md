@@ -89,9 +89,9 @@ msgService.Send("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello")
 If we except a reply back from the other node, we can call the *bitverse.SendAndGetReply(...)* and provide a closure which will be called when the reply is received. We also need to provide a timeout in seconds in case the other node failed to reply, or that node simply does not exists.
 
 ```go
-msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply *string) {
+msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply interface{}) {
 		if success {
-			fmt.Println("that was a surprise " + *reply)
+			fmt.Println("that was a surprise " + reply.(string))
 		} else {
 			// will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
 			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876")

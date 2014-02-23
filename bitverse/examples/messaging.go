@@ -17,8 +17,8 @@ func (msgServiceObserver *MsgServiceObserver) OnDeliver(msgService *bitverse.Msg
 		msgService.Send(msg.Src, "hi dude!")
 
 		fmt.Println("sending: how are you doing?")
-		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(success bool, reply *string) {
-			fmt.Println("got a reply (how are you doing?): " + *reply)
+		msgService.SendAndGetReply(msg.Src, "how are you doing?", 10, func(success bool, reply interface{}) {
+			fmt.Println("got a reply (how are you doing?): " + reply.(string))
 		})
 	} else if msg.Payload == "how are you doing?" {
 		fmt.Println("got a message: how are you doing?")
@@ -48,8 +48,8 @@ func (bitverseObserver *BitverseObserver) OnSiblingJoined(node *bitverse.EdgeNod
 	fmt.Println("sending: hello")
 
 	fmt.Println("sending: who are you?")
-	msgService.SendAndGetReply(id, "who are you?", 10, func(success bool, reply *string) {
-		fmt.Println("got a reply (who are you?): " + *reply)
+	msgService.SendAndGetReply(id, "who are you?", 10, func(success bool, reply interface{}) {
+		fmt.Println("got a reply (who are you?): " + reply.(string))
 	})
 }
 
@@ -74,9 +74,9 @@ func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, r
 	remoteNode.SendChildrenRequest()
 
 	msgService := node.GetMsgService(serviceId)
-	msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply *string) {
+	msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply interface{}) {
 		if success {
-			fmt.Println("that was a surprise " + *reply)
+			fmt.Println("that was a surprise " + reply.(string))
 		} else {
 			// we will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
 			fmt.Println("failed to send message to node with id <does not exists>")

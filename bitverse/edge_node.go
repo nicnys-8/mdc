@@ -15,7 +15,7 @@ type EdgeNode struct {
 	remoteNodeChannel chan *RemoteNode
 	transport         Transport
 	msgServices       map[string]*MsgService
-	storageServices   map[string]*StorageService
+	repoServices      map[string]*RepoService
 	bitverseObserver  BitverseObserver
 	replyTable        map[string]*msgReplyType
 }
@@ -34,7 +34,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 	edgeNode.msgChannel = make(chan Msg)
 	edgeNode.remoteNodeChannel = make(chan *RemoteNode, 10)
 	edgeNode.msgServices = make(map[string]*MsgService)
-	edgeNode.storageServices = make(map[string]*StorageService)
+	edgeNode.repoServices = make(map[string]*RepoService)
 	edgeNode.replyTable = make(map[string]*msgReplyType)
 
 	go func() {
@@ -58,7 +58,7 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 							} else {
 								reply := edgeNode.replyTable[msg.Id]
 								if reply != nil {
-									reply.callback(true, &msg.Payload)
+									reply.callback(true, msg.Payload)
 									delete(edgeNode.replyTable, msg.Id)
 								} else {
 									observer.OnDeliver(msgService, &msg)
@@ -164,15 +164,14 @@ func (edgeNode *EdgeNode) CreateMsgService(secret string, serviceId string, obse
 	}
 }
 
-func (edgeNode *EdgeNode) ClaimRepository(repoId string, publicKey string, callback func(success bool)) *StorageService {
-	if edgeNode.storageServices[repoId] == nil {
+/*	if edgeNode.storageServices[repoId] == nil {
 		storageService := composeStorageService("", repoId, edgeNode)
 		edgeNode.storageServices[repoId] = storageService
 		return storageService
 	} else {
 		return edgeNode.storageServices[repoId]
 	}
-}
+} */
 
 func (edgeNode *EdgeNode) GetMsgService(serviceId string) *MsgService {
 	return edgeNode.msgServices[serviceId]
