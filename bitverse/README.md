@@ -16,7 +16,7 @@ Just type `go get ltu-cloudberry/mdc/bitverse` to install the bitverse Go projec
 
 To setup a supernode, call `bitverse --local localhost:1111`, where the `--local` flag the specifies host and port where the super node should bind to. You may also pass the `--debug` flag if you want to enable debugging (more print traces).
 
-## Example
+## Example Golang
 To be able to create an edge node, a *BitverseObserver* compliant object must first be implemented. The edge node object will call functions in the bitverse observer object when it becomes connected to a super node, or when other nodes (siblings) joins or leaves the super node (it is possible to retreive a list of edge nodes on any other foreign super node in the bitverse network).   
 
 ```go
@@ -89,11 +89,11 @@ msgService.Send("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello")
 If we except a reply back from the other node, we can call the *bitverse.SendAndGetReply(...)* and provide a closure which will be called when the reply is received. We also need to provide a timeout in seconds in case the other node failed to reply, or that node simply does not exists.
 
 ```go
-msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(success bool, reply interface{}) {
-		if success {
-			fmt.Println("that was a surprise " + reply.(string))
+msgService.SendAndGetReply("6a133a1b41f987210559ceb4ed9b1dbf58aec876", "hello", 10, func(err error, reply interface{}) {
+		if err == nil {
+			fmt.Println("got a reply " + reply.(string))
 		} else {
-			// will most likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
+			// will likely timeout unless node 6a133a1b41f987210559ceb4ed9b1dbf58aec876 is online
 			fmt.Println("failed to send message to node with id 6a133a1b41f987210559ceb4ed9b1dbf58aec876")
 		}
 	})
