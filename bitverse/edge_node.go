@@ -56,7 +56,11 @@ func MakeEdgeNode(transport Transport, bitverseObserver BitverseObserver) (*Edge
 						} else {
 							var err error
 							if msg.Payload != "" && msg.PayloadType != Nil {
-								msg.Payload, err = decryptAes(msgService.aesEncryptionKey, msg.Payload)
+								if msg.Status != Error { // do not try to decrypt error response messages
+									msg.Payload, err = decryptAes(msgService.aesEncryptionKey, msg.Payload)
+								} else {
+									err = nil
+								}
 							}
 							if err != nil {
 								info("edgenode: failed to decrypt payload, ignoring incoming msg")

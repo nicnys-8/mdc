@@ -41,20 +41,21 @@ func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, r
 
 	node.ClaimRepository(repoId, secret, prv, pub, 10, func(err error, repo interface{}) {
 		if err != nil {
-			fmt.Println("failed to claim repo")
+			fmt.Println("failed to claim repo: ")
 		} else {
 			fmt.Println("sucessfully claimed repo <test>")
 			testRepo := repo.(*bitverse.RepoService)
 
-			testRepo.Store("myKey", "myValue", 10, func(err error, oldValue interface{}) {
+			testRepo.Store("myKey", "myValue", 10, func(err error, response interface{}) {
 				if err != nil {
-					fmt.Println("failed to store key in bitverse network")
+					fmt.Println("edgenode: ERROR super node failed to store key in bitverse network: " + err.Error())
 				} else {
-					switch oldValue.(type) {
+					switch response.(type) {
 					case string:
-						fmt.Printf("replacing key-value pair in the bitverse network, old value was " + oldValue.(string))
+						oldValue := response.(string)
+						fmt.Println("replacing key-value pair in the bitverse network, old value was " + oldValue)
 					case nil:
-						fmt.Printf("storing new key-value pair in the bitverse network")
+						fmt.Println("storing new key-value pair in the bitverse network")
 					}
 				}
 			})

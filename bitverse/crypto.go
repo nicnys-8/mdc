@@ -63,12 +63,12 @@ func GeneratePem(filename string) (err error) {
 }
 
 func ImportPem(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey, err error) {
-	prv, _, err = importKeyFromPem(filename)
+	prv, _, err = importKeyFromFile(filename)
 	if err != nil {
 		return
 	}
 
-	_, pub, err = importKeyFromPem(filename + ".pub")
+	_, pub, err = importKeyFromFile(filename + ".pub")
 	if err != nil {
 		return
 	}
@@ -267,12 +267,40 @@ func exportPem(filename string, prvPem string, pubPem string) (err error) {
 	return
 }
 
-func importKeyFromPem(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey, err error) {
+func importKeyFromFile(filename string) (prv *rsa.PrivateKey, pub *rsa.PublicKey, err error) {
 	cert, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return
 	}
 
+	for {
+		var blk *pem.Block
+		blk, cert = pem.Decode(cert)
+		if blk == nil {
+			break
+		}
+		switch blk.Type {
+		case "RSA PRIVATE KEY":
+			prv, err = x509.ParsePKCS1PrivateKey(blk.Bytes)
+			return
+		case "RSA PUBLIC KEY":
+			var in interface{}
+			in, err = x509.ParsePKIXPublicKey(blk.Bytes)
+			if err != nil {
+				return
+			}
+			pub = in.(*rsa.PublicKey)
+			return
+		}
+		if cert == nil || len(cert) == 0 {
+			break
+		}
+	}
+	return
+}
+
+func importKeyFromString(str string) (prv *rsa.PrivateKey, pub *rsa.PublicKey, err error) {
+	cert := []byte(str)
 	for {
 		var blk *pem.Block
 		blk, cert = pem.Decode(cert)
