@@ -39,24 +39,37 @@ func (bitverseObserver *BitverseObserver) OnConnected(node *bitverse.EdgeNode, r
 		fmt.Println(err)
 	}
 
-	node.ClaimRepository(repoId, secret, prv, pub, 10, func(err error, repo interface{}) {
+	node.ClaimOwnership(repoId, secret, prv, pub, 5, func(err error, repo interface{}) {
 		if err != nil {
-			fmt.Println("failed to claim repo: ")
+			fmt.Println("failed to claim repo: " + err.Error())
 		} else {
 			fmt.Println("sucessfully claimed repo <test>")
 			testRepo := repo.(*bitverse.RepoService)
 
-			testRepo.Store("myKey", "myValue", 10, func(err error, response interface{}) {
+			testRepo.Store("myKey", "myValue", 5, func(err error, oldValue interface{}) {
 				if err != nil {
-					fmt.Println("edgenode: ERROR super node failed to store key in bitverse network: " + err.Error())
+					fmt.Println("failed to store key in bitverse network: " + err.Error())
 				} else {
-					switch response.(type) {
+					switch oldValue.(type) {
 					case string:
-						oldValue := response.(string)
-						fmt.Println("replacing key-value pair in the bitverse network, old value was " + oldValue)
+						fmt.Println("replacing key-value pair in the bitverse network, old value was " + oldValue.(string))
 					case nil:
 						fmt.Println("storing new key-value pair in the bitverse network")
 					}
+
+					fmt.Println("retreiving key <myKey>")
+					testRepo.Lookup("myKey", 5, func(err error, value interface{}) {
+						if err != nil {
+							fmt.Println("failed to get value from the bitverse network: " + err.Error())
+						} else {
+							switch value.(type) {
+							case string:
+								fmt.Println("the value is " + value.(string))
+							case nil:
+								fmt.Println("unknown key")
+							}
+						}
+					})
 				}
 			})
 

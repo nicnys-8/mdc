@@ -201,7 +201,7 @@ func (edgeNode *EdgeNode) GetMsgService(serviceId string) *MsgService {
 
 // REPO MANAGEMENT
 
-func (edgeNode *EdgeNode) ClaimRepository(repoId string, aesEncryptionKey string, prv *rsa.PrivateKey, pub *rsa.PublicKey, timeout int32, callback func(err error, repo interface{})) error {
+func (edgeNode *EdgeNode) ClaimOwnership(repoId string, aesEncryptionKey string, prv *rsa.PrivateKey, pub *rsa.PublicKey, timeout int32, callback func(err error, repo interface{})) error {
 	repoMsgServiceObserver := new(RepoMsgServiceObserver)
 
 	repoMsgService, err := edgeNode.CreateMsgService(aesEncryptionKey, repoId, repoMsgServiceObserver)

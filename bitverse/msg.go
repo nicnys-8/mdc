@@ -104,6 +104,25 @@ func composeMsgServiceMsg(src string, dst string, serviceId string, payload stri
 
 /// Repo service messages
 
+func composeRepoClaimMsg(src string, superNodeId string, repoId string, publicKey string) *Msg {
+	msg := new(Msg)
+	msg.Type = Data
+	msg.Src = src
+	msg.Dst = superNodeId
+	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
+	msg.Signature = publicKey
+
+	msg.MsgServiceName = repoId
+	msg.ServiceType = Repo
+
+	msg.RepoId = repoId
+	msg.RepoCmd = Claim
+
+	msg.Status = Ok
+
+	return msg
+}
+
 func composeRepoStoreMsg(src string, superNodeId string, repoId string, key string, value string, signature string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
@@ -126,7 +145,7 @@ func composeRepoStoreMsg(src string, superNodeId string, repoId string, key stri
 	return msg
 }
 
-func composeRepoLookupMsg(src string, superNodeId string, repoId string, key string) *Msg {
+func composeRepoLookupMsg(src string, superNodeId string, repoId string, key string, signature string) *Msg {
 	msg := new(Msg)
 	msg.Type = Data
 	msg.Src = src
@@ -137,27 +156,10 @@ func composeRepoLookupMsg(src string, superNodeId string, repoId string, key str
 	msg.ServiceType = Repo
 
 	msg.RepoId = repoId
-	msg.RepoCmd = Store
+	msg.RepoCmd = Lookup
 	msg.RepoKey = key
 
-	msg.Status = Ok
-
-	return msg
-}
-
-func composeRepoClaimMsg(src string, superNodeId string, repoId string, publicKey string) *Msg {
-	msg := new(Msg)
-	msg.Type = Data
-	msg.Src = src
-	msg.Dst = superNodeId
-	msg.Id = msg.Src + ":" + fmt.Sprintf("%d", getSeqNr())
-	msg.Signature = publicKey
-
-	msg.MsgServiceName = repoId
-	msg.ServiceType = Repo
-
-	msg.RepoId = repoId
-	msg.RepoCmd = Claim
+	msg.Signature = signature
 
 	msg.Status = Ok
 

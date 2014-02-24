@@ -5,6 +5,11 @@ import (
 	"fmt"
 )
 
+type repokey_t struct {
+	repoId string
+	key    string
+}
+
 type SuperNode struct {
 	nodeId                 NodeId
 	children               map[string]*RemoteNode
@@ -14,8 +19,8 @@ type SuperNode struct {
 	localAddr              string
 	localPort              string
 	transport              Transport
-	repoAutenticationTable map[string]*string // repoid:public key
-	repository             map[string]*string // global key-value store
+	repoAutenticationTable map[string]*string    // repoid:public key
+	repositories           map[repokey_t]*string // global key-value store
 }
 
 func MakeSuperNode(transport Transport, localAddress string, localPort string) (*SuperNode, chan int) {
@@ -26,7 +31,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 	superNode.transport = transport
 
 	superNode.repoAutenticationTable = make(map[string]*string)
-	superNode.repository = make(map[string]*string)
+	superNode.repositories = make(map[repokey_t]*string)
 
 	superNode.nodeId = generateNodeId()
 	debug("supernode: my id is " + superNode.Id())
@@ -48,6 +53,7 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 					// ignore, not supported
 
 				} else if msg.Type == Data && msg.ServiceType == Repo && msg.RepoCmd == Claim { // repo claim request
+					// REPO CLAIM REQUEST
 					repoId := msg.RepoId
 					pubKeyPem := msg.Signature
 					debug("supernode: got a repo claim request for repo " + repoId + " with public key <" + pubKeyPem + ">")
@@ -73,8 +79,10 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 					msg.Src = superNode.Id()
 					superNode.sendToChild(msg)
 
-				} else if msg.Type == Data && msg.ServiceType == Repo && msg.RepoCmd == Store { // repo store request
+				} else if msg.Type == Data && msg.ServiceType == Repo && msg.RepoCmd == Store {
+					// REPO STORE REQUEST
 					debug("supernode: got a repo store request repo <" + msg.RepoId + "> with key <" + msg.RepoKey + "> value <" + msg.RepoValue + "> with signature <" + msg.Signature + ">")
+
 					repoId := msg.RepoId
 
 					if superNode.repoAutenticationTable[repoId] == nil {
@@ -100,15 +108,15 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 								msg.Status = Error
 								msg.Payload = errMsg
 							} else {
-								verfErr := verify(pub, key+value, signature) // the key and value are aes encrypted
+								verfErr := verify(pub, value, signature) // the key and value are aes encrypted
 								if verfErr != nil {
 									errMsg := "failed to verify signature for repo <" + repoId + ">"
 									info("supernode: ERROR " + errMsg)
 									msg.Status = Error
 									msg.Payload = errMsg
 								} else {
-									oldValue := superNode.repository[key]
-									superNode.repository[key] = &value
+									oldValue := superNode.repositories[repokey_t{repoId, key}]
+									superNode.repositories[repokey_t{repoId, key}] = &value
 									if oldValue == nil {
 										info("supernode: setting key <" + key + "> to value <" + value + ">")
 										msg.Status = Ok
@@ -128,6 +136,57 @@ func MakeSuperNode(transport Transport, localAddress string, localPort string) (
 					msg.Dst = childId
 					msg.Src = superNode.Id()
 					superNode.sendToChild(msg)
+				} else if msg.Type == Data && msg.ServiceType == Repo && msg.RepoCmd == Lookup {
+					// REPO LOOKUP REQUEST
+					debug("supernode: got a repo look request repo <" + msg.RepoId + "> with key <" + msg.RepoKey + "> with signature <" + msg.Signature + ">")
+
+					repoId := msg.RepoId
+					if superNode.repoAutenticationTable[repoId] == nil {
+						msg.Status = Error
+						msg.Payload = "no such repo " + repoId
+					} else {
+						key := msg.RepoKey
+						signature := msg.Signature
+
+						pubPemKey := superNode.repoAutenticationTable[repoId]
+						if pubPemKey == nil {
+							errMsg := "failed to receive public key for repo <" + repoId + ">"
+							info("supernode: ERROR " + errMsg)
+							msg.Status = Error
+							msg.Payload = errMsg
+						} else {
+							_, pub, importErr := importKeyFromString(*pubPemKey)
+							if importErr != nil {
+								errMsg := "failed to convert pem public key for repo <" + repoId + ">"
+								info("supernode: ERROR " + errMsg)
+								msg.Status = Error
+								msg.Payload = errMsg
+							} else {
+								verfErr := verify(pub, key, signature) // the key is aes encrypted
+								if verfErr != nil {
+									errMsg := "failed to verify signature for repo <" + repoId + ">"
+									info("supernode: ERROR " + errMsg)
+									msg.Status = Error
+									msg.Payload = errMsg
+								} else {
+									value := superNode.repositories[repokey_t{repoId, key}]
+									if value == nil {
+										msg.Status = Ok
+										msg.PayloadType = Nil
+									} else {
+										msg.Status = Ok
+										msg.Payload = *value
+									}
+								}
+							}
+						}
+
+						// now it is time to send a reply back depending of the outcome
+						childId := msg.Src
+						msg.Dst = childId
+						msg.Src = superNode.Id()
+						superNode.sendToChild(msg)
+					}
 
 				} else if msg.Type == Heartbeat {
 					superNode.forwardToChildren(msg)

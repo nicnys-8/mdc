@@ -34,27 +34,22 @@ func composeRepoService(aesEncryptionKey string, prv *rsa.PrivateKey, pub *rsa.P
 }
 
 func (repoService *RepoService) Store(key string, value string, timeout int32, callback func(err error, oldValue interface{})) {
-	encryptedKey := encryptAes(repoService.aesEncryptionKey, key)
 	encryptedValue := encryptAes(repoService.aesEncryptionKey, value)
-	signature, err := sign(repoService.prv, encryptedKey+encryptedValue)
+	signature, err := sign(repoService.prv, encryptedValue)
 	if err != nil {
 		panic(err)
 	}
 
-	msg := composeRepoStoreMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, encryptedKey, encryptedValue, signature)
+	msg := composeRepoStoreMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key, encryptedValue, signature)
 	repoService.msgService.sendMsgAndGetReply(msg, timeout, callback)
 }
 
 func (repoService *RepoService) Lookup(key string, timeout int32, callback func(err error, value interface{})) {
-	//msg := composeRepoLookupMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key)
-	encryptedKey := encryptAes(repoService.aesEncryptionKey, key)
-	encryptedValue := encryptAes(repoService.aesEncryptionKey, value)
-	signature, err := sign(repoService.prv, encryptedKey+encryptedValue)
+	signature, err := sign(repoService.prv, key)
 	if err != nil {
 		panic(err)
 	}
 
-	msg := composeRepoStoreMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, encryptedKey, encryptedValue, signature)
+	msg := composeRepoLookupMsg(repoService.edgeNode.Id(), repoService.edgeNode.superNode.Id(), repoService.repoId, key, signature)
 	repoService.msgService.sendMsgAndGetReply(msg, timeout, callback)
-
 }
