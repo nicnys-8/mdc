@@ -11,6 +11,7 @@ import (
 
 var debugFlag = flag.Bool("debug", false, "run the node in debug mode")
 var aesSecretFlag = flag.Bool("generate-aes-secret", false, "generate hex encoded aes secret")
+var certFlag = flag.String("generate-rsa-keys", "", "generate rsa public and private keys, e.g. --generate-cert mycert")
 var localFlag = flag.String("local", "", "ip address and port which this super node should bound to, e.g. --local localhost:1111")
 var joinFlag = flag.String("join", "", "ip address and port to a node to join, e.g. --join localhost:2222")
 var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http test server at port 8080 for debuging")
@@ -19,7 +20,6 @@ var testHttpServerFlag = flag.Bool("test-http-server", false, "starts a http tes
 
 func main() {
 	flag.Parse()
-
 	if *aesSecretFlag {
 		aesSecret, err := bitverse.GenerateAesSecret()
 
@@ -28,6 +28,9 @@ func main() {
 		}
 
 		fmt.Println(aesSecret)
+	} else if *certFlag != "" {
+		fmt.Println("generating files " + *certFlag + " " + *certFlag + ".pub")
+		bitverse.GeneratePem(*certFlag)
 	} else {
 		// set up super node
 		var done chan int
